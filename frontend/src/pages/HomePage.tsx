@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useTypewriter, Cursor } from 'react-simple-typewriter'
 import { ArrowRightIcon } from '@heroicons/react/24/solid'
 import type { AuthUser } from '@hillolbarman/ui'
 import { BackgroundBeams, ProjectCard } from '@hillolbarman/ui'
@@ -8,18 +9,6 @@ import AppHeader from '../components/AppHeader'
 import AppFooter from '../components/AppFooter'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
-
-const heroRevealWords = ['Think.', 'Plan.', 'Build.', 'Ship.']
-const heroFinalSlideIndex = heroRevealWords.length
-const heroSublineSlideIndex = heroFinalSlideIndex + 1
-const heroIntroCopySlideIndex = heroSublineSlideIndex + 1
-const heroButtonSlideIndex = heroIntroCopySlideIndex + 1
-const heroRevealDelays = [720, 720, 720, 720, 720, 720, 720]
-
-function getRevealState(slideIndex: number, activeIndex: number): string {
-  if (slideIndex === activeIndex) return 'present'
-  return slideIndex < activeIndex ? 'past' : 'future'
-}
 
 interface HomePageProps {
   onNavigate: (to: string) => void
@@ -32,22 +21,18 @@ export default function HomePage({ onNavigate, currentUser, onLogout, currentPat
   const [newsletterEmail, setNewsletterEmail] = useState('')
   const [newsletterMessage, setNewsletterMessage] = useState('')
   const [isNewsletterSubmitting, setIsNewsletterSubmitting] = useState(false)
-  const [heroRevealIndex, setHeroRevealIndex] = useState(0)
+  const [typingDone, setTypingDone] = useState(false)
 
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setHeroRevealIndex(heroButtonSlideIndex)
-      return
-    }
+  const [text] = useTypewriter({
+    words: ['Think.', 'Plan.', 'Build.', 'Ship.', 'Think. Plan. Build. Ship.'],
+    loop: 1,
+    typeSpeed: 90,
+    deleteSpeed: 45,
+    delaySpeed: 800,
+    onLoopDone: () => setTypingDone(true),
+  })
 
-    if (heroRevealIndex >= heroButtonSlideIndex) return
-
-    const timeoutId = window.setTimeout(() => {
-      setHeroRevealIndex((idx) => Math.min(idx + 1, heroButtonSlideIndex))
-    }, heroRevealDelays[heroRevealIndex] ?? 720)
-
-    return () => window.clearTimeout(timeoutId)
-  }, [heroRevealIndex])
+  const displayText = typingDone ? 'Think. Plan. Build. Ship.' : text
 
   const handleNavigate = (event: React.MouseEvent<HTMLAnchorElement>, to: string) => {
     event.preventDefault()
@@ -112,57 +97,17 @@ export default function HomePage({ onNavigate, currentUser, onLogout, currentPat
         <BackgroundBeams className="-z-10" />
         <div className="mx-auto max-w-6xl px-5 pb-18 pt-10 sm:pb-22 lg:px-6 lg:pb-24 lg:pt-18">
           <div className="mx-auto flex max-w-4xl flex-col items-center text-center">
-            <p
-              className="type-eyebrow hero-copy-reveal"
-              data-reveal-state={heroRevealIndex >= heroIntroCopySlideIndex ? 'present' : 'future'}
-            >
+            <p className="type-eyebrow">
               Backend Focused Full Stack Software Engineer
             </p>
-            <h1
-              className="type-hero hero-reveal-deck mt-5 max-w-3xl text-balance"
-              aria-label="Think. Plan. Build. Ship. Clean architecture. Practical delivery."
-            >
-              <span className="hero-title-stage" aria-hidden="true">
-                <span className="hero-word-stage" data-reveal-axis="vertical">
-                  {heroRevealWords.map((word, index) => (
-                    <span
-                      key={word}
-                      className="hero-reveal-slide"
-                      data-reveal-state={getRevealState(index, heroRevealIndex)}
-                    >
-                      {word}
-                    </span>
-                  ))}
-                </span>
-                <span
-                  className="hero-reveal-slide hero-final-line"
-                  data-reveal-state={heroRevealIndex >= heroFinalSlideIndex ? 'present' : 'future'}
-                >
-                  Think. Plan. Build. Ship.
-                </span>
-              </span>
-              <span className="hero-subline-stage mt-3 block text-accent" aria-hidden="true">
-                <span
-                  className="hero-reveal-slide hero-subline text-2xl sm:text-4xl"
-                  data-reveal-state={heroRevealIndex >= heroSublineSlideIndex ? 'present' : 'future'}
-                  data-reveal-direction="from-top"
-                >
-                  Clean architecture. Practical delivery.
-                </span>
-              </span>
+            <h1 className="type-hero mt-5 max-w-3xl text-balance">
+              {displayText}
+              {!typingDone && <Cursor cursorBlinking />}
             </h1>
-            <p
-              className="type-body hero-copy-reveal mt-6 max-w-2xl text-pretty"
-              data-reveal-state={heroRevealIndex >= heroIntroCopySlideIndex ? 'present' : 'future'}
-              data-reveal-direction="from-top"
-            >
+            <p className="type-body mt-6 max-w-2xl text-pretty">
               I design and develop responsive web products with a focus on maintainable code, clear user journeys, and dependable full-stack implementation.
             </p>
-            <div
-              className="hero-copy-reveal mt-7 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-center"
-              data-reveal-state={heroRevealIndex >= heroButtonSlideIndex ? 'present' : 'future'}
-              data-reveal-direction="from-top"
-            >
+            <div className="mt-7 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-center">
               <a
                 href="/projects"
                 onClick={(e) => handleNavigate(e, '/projects')}

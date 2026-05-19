@@ -90,12 +90,15 @@ export default function HomePage({ onNavigate, currentUser, onLogout, currentPat
     .filter((p): p is NonNullable<typeof p> => p !== undefined)
 
   return (
-    <div>
+    <div className="relative">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[70vh] -z-10 overflow-hidden">
+        <BackgroundBeams />
+      </div>
+
       <AppHeader onNavigate={onNavigate} currentUser={currentUser} onLogout={onLogout} currentPath={currentPath} />
 
       {/* Hero Section */}
-      <div className="relative isolate overflow-hidden pt-10">
-        <BackgroundBeams className="-z-10" />
+      <div className="relative isolate pt-10">
         <div className="mx-auto max-w-6xl px-5 pb-18 pt-10 sm:pb-22 lg:px-6 lg:pb-24 lg:pt-18">
           <div className="mx-auto flex max-w-4xl flex-col items-center text-center">
             <p className="type-eyebrow">

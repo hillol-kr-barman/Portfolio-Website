@@ -14,7 +14,7 @@ export default function AppHeader({ currentPath, currentUser, onNavigate, onLogo
   return (
     <SiteHeader
       logo={<img src={logo} alt="Hillol Barman" className="h-8 w-auto" />}
-      siteName="Hillol Barman"
+      siteName=""
       navItems={navigation}
       currentPath={currentPath}
       currentUser={currentUser}

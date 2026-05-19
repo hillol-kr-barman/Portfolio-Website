@@ -3,6 +3,7 @@ import { useTypewriter, Cursor } from 'react-simple-typewriter'
 import { ArrowRightIcon } from '@heroicons/react/24/solid'
 import type { AuthUser } from '@hillolbarman/ui'
 import { ProjectCard } from '@hillolbarman/ui'
+import BackgroundBeams from '../components/BackgroundBeams'
 import coffeeCup from '../assets/coffeeCup.svg'
 import { techStackLogos, projects, featuredProjectIds } from './pageData/homePageData'
 import AppHeader from '../components/AppHeader'
@@ -93,7 +94,8 @@ export default function HomePage({ onNavigate, currentUser, onLogout, currentPat
       <AppHeader onNavigate={onNavigate} currentUser={currentUser} onLogout={onLogout} currentPath={currentPath} />
 
       {/* Hero Section */}
-      <div className="-mt-14 pt-28">
+      <div className="relative isolate overflow-hidden -mt-14 pt-28">
+        <BackgroundBeams className="-z-10" />
         <div className="mx-auto max-w-6xl px-5 pb-18 pt-10 sm:pb-22 lg:px-6 lg:pb-24 lg:pt-18">
           <div className="mx-auto flex max-w-4xl flex-col items-center text-center">
             <p className="type-eyebrow">

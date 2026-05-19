@@ -7,3 +7,35 @@
   --color-accent-strong: #7acc00;
 }
 
+.background-beams {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--color-accent) 12%, transparent), transparent 34%),
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.05), transparent 28%);
+}
+
+.background-beams__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 1;
+}
+
+.background-beams__fade {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at top center, rgba(255, 255, 255, 0.08), transparent 32%),
+    linear-gradient(180deg, transparent 40%, var(--color-background) 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .background-beams__svg animate {
+    display: none;
+  }
+}
+

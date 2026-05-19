@@ -1,5 +1,5 @@
 import type { AuthUser } from '@hillolbarman/ui'
-import { BackgroundBeams } from '@hillolbarman/ui'
+import BackgroundBeams from '../components/BackgroundBeams'
 import AppHeader from '../components/AppHeader'
 import AppFooter from '../components/AppFooter'
 

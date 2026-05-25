@@ -99,7 +99,7 @@ export default function HomePage({ onNavigate, currentUser, onLogout, currentPat
 
       {/* Hero Section */}
       <div className="relative isolate pt-10">
-        <div className="mx-auto max-w-6xl px-5 pb-18 pt-10 sm:pb-22 lg:px-6 lg:pb-24 lg:pt-18">
+        <div className="mx-auto max-w-6xl px-5 pb-18 pt-10 sm:pb-22 lg:px-6 lg:pb-24 lg:pt-18 mt-10">
           <div className="mx-auto flex max-w-4xl flex-col items-center text-center">
             <p className="type-eyebrow">
               Backend Focused Full Stack Software Engineer
@@ -117,7 +117,7 @@ export default function HomePage({ onNavigate, currentUser, onLogout, currentPat
                 onClick={(e) => handleNavigate(e, '/projects')}
                 className="inline-flex items-center justify-center gap-x-2 rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-black transition-shadow duration-300 hover:shadow-[0_0_22px_color-mix(in_srgb,var(--color-accent)_55%,transparent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
-                View Project
+                View Projects
                 <ArrowRightIcon aria-hidden="true" className="size-4" />
               </a>
             </div>

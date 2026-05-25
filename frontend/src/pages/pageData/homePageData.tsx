@@ -28,9 +28,18 @@ export const projects: Project[] = [
     imageSrc: 'https://cdn.simpleicons.org/github/ffffff',
     gitLink: 'https://github.com/hillol-kr-barman/Github-Visualiser',
   },
+  {
+    id: 2,
+    title: 'Grounded (Beta)',
+    content:
+      'An AI-powered knowledge base application that lets users create custom knowledge bases, upload documents (PDF and DOCX), and interact with their content through a conversational chat interface backed by large language models.',
+    projectTechstack: 'React, Vite, TypeScript, FastAPI, Supabase, OpenAI, Claude (Anthropic)',
+    imageSrc: 'https://cdn.simpleicons.org/anthropic/ffffff',
+    gitLink: 'https://github.com/hillol-kr-barman/Grounded',
+  },
 ]
 
-export const featuredProjectIds = [1]
+export const featuredProjectIds = [1, 2]
 
 const LinkedInIcon = (props: SVGProps<SVGSVGElement>) => (
   <svg fill="currentColor" viewBox="0 0 24 24" {...props}>

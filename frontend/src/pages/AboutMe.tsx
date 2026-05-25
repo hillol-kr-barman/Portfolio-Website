@@ -8,33 +8,50 @@ import AppFooter from '../components/AppFooter'
 const skills = [
   { name: 'TypeScript', dot: '#3178c6' },
   { name: 'JavaScript', dot: '#f7df1e' },
-  { name: 'React 19', dot: '#61dafb' },
-  { name: 'Tailwind CSS', dot: '#06b6d4' },
   { name: 'Python', dot: '#3776ab' },
-  { name: 'FastAPI', dot: '#009688' },
-  { name: 'Node.js', dot: '#68a063' },
-  { name: 'Supabase', dot: '#3ecf8e' },
-  { name: 'PostgreSQL', dot: '#336791' },
-  { name: 'REST APIs', dot: '#9eff1f' },
-  { name: 'Git / GitHub', dot: '#e8274b' },
-  { name: 'AWS', dot: '#ff9900' },
-  { name: 'Stripe', dot: '#635bff' },
+  { name: 'SQL', dot: '#a0a0a0' },
+  { name: 'React 19', dot: '#61dafb' },
   { name: 'Next.js', dot: '#ffffff' },
+  { name: 'Tailwind CSS', dot: '#06b6d4' },
+  { name: 'FastAPI', dot: '#009688' },
   { name: 'Flask', dot: '#9aa3b0' },
+  { name: 'Node.js', dot: '#68a063' },
+  { name: 'REST APIs', dot: '#9eff1f' },
+  { name: 'PostgreSQL', dot: '#336791' },
+  { name: 'MySQL', dot: '#4479a1' },
+  { name: 'Supabase', dot: '#3ecf8e' },
+  { name: 'Docker', dot: '#2496ed' },
+  { name: 'AWS', dot: '#ff9900' },
+  { name: 'Git / GitHub', dot: '#e8274b' },
+  { name: 'pytest', dot: '#009fe3' },
+  { name: 'Figma', dot: '#f24e1e' },
+  { name: 'Stripe', dot: '#635bff' },
   { name: 'Monaco Editor', dot: '#0078d4' },
 ]
 
 const employment = [
+  {
+    company: 'NPG Urbanista Convenience Store',
+    role: 'Console Operator',
+    location: 'Albion Park, NSW',
+    duration: 'Mar 2025 – Present',
+    highlights: [
+      'Managed fuel console operations, customer transactions, and end-of-day reconciliation.',
+      'Provided customer service and resolved on-site issues in a fast-paced retail environment.',
+      'Maintained compliance with fuel safety and store operational procedures.',
+    ],
+  },
   {
     company: 'Drivers4Me',
     role: 'Freelance UI Designer and Developer',
     location: 'Kolkata, India',
     duration: 'Dec 2020 – Feb 2023',
     highlights: [
-      'Developed RESTful APIs using Flask for frontend applications to consume.',
-      'Created several pages and reusable components with Next.js and React.',
-      'Built a dynamic trip fare estimate service using a rule-based system and geohash, contributing to roughly 60% of the company marketing impact.',
-      'Created wireframes, mockups, and graphical assets for Android, iOS, and web platforms.',
+      'Developed and maintained RESTful APIs using Flask to support frontend application features.',
+      'Built reusable UI components and full pages using React and Next.js for web and mobile-responsive platforms.',
+      'Collaborated directly with stakeholders to gather requirements and translate them into working software deliverables.',
+      'Designed wireframes, mockups, and graphical assets using Figma and Adobe Illustrator for Android, iOS, and web.',
+      'Contributed across the full software development lifecycle — from planning and design through to implementation and delivery.',
     ],
   },
 ]
@@ -44,7 +61,7 @@ const education = [
     institution: 'University of Wollongong, NSW',
     degree: 'MSc in Computer Science (Software Engineering)',
     duration: 'Jul 2023 – Jun 2025',
-    notes: 'Graduated with Distinction',
+    notes: 'Graduated with Distinction — 5 High Distinctions and 6 Distinctions. Lead developer in capstone project.',
   },
   {
     institution: 'Institute of Engineering and Management (IEM), Kolkata',
@@ -66,6 +83,7 @@ const timeline = [
   { period: 'Jun 2016 – Jul 2020', event: 'BSc in Computer Science and Engineering at IEM, Kolkata' },
   { period: 'Dec 2020 – Feb 2023', event: 'Freelance UI Designer and Developer at Drivers4Me' },
   { period: 'Jul 2023 – Jun 2025', event: 'MSc in Computer Science (Software Engineering), UOW — Distinction' },
+  { period: 'Mar 2025 – Present', event: 'Console Operator at NPG Urbanista Convenience Store, Albion Park NSW' },
 ]
 
 interface AboutMeProps {

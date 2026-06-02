@@ -20,6 +20,7 @@ export default function AppHeader({ currentPath, currentUser, onNavigate, onLogo
       currentUser={currentUser}
       onNavigate={onNavigate}
       onLogout={onLogout}
+      containerClassName="px-4 sm:px-6 lg:mx-16 lg:px-6"
     />
   )
 }

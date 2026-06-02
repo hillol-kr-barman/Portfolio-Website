@@ -126,8 +126,8 @@ export default function HomePage({ onNavigate, currentUser, onLogout, currentPat
       </div>
 
       {/* Primary Technologies */}
-      <div className="mx-auto mt-24 max-w-6xl sm:mt-28 sm:px-5 lg:px-6">
-        <div className="relative isolate overflow-hidden bg-surface px-5 py-14 text-center after:pointer-events-none after:absolute after:inset-0 after:inset-ring after:inset-ring-white/10 sm:rounded-3xl sm:px-10 after:sm:rounded-3xl">
+      <div className="mx-auto mt-24 max-w-6xl px-4 sm:mt-28 sm:px-5 lg:px-6">
+        <div className="relative isolate overflow-hidden bg-surface rounded-3xl px-5 py-14 text-center after:pointer-events-none after:absolute after:inset-0 after:inset-ring after:inset-ring-white/10 after:rounded-3xl sm:px-10">
           <h4 className="type-section-title mx-auto max-w-2xl">Primary Technologies</h4>
           <p className="type-body mx-auto mt-4 max-w-3xl">
             These are the technologies I use to build performant interfaces, reliable APIs, and maintainable product foundations.
@@ -150,7 +150,7 @@ export default function HomePage({ onNavigate, currentUser, onLogout, currentPat
       {/* Featured Projects */}
       <div className="mx-auto mb-24 mt-32 max-w-6xl px-5 lg:px-6">
         <h2 className="type-section-title text-center">Featured Projects</h2>
-        <div className="mx-auto mt-8 grid max-w-md grid-cols-1 gap-4">
+        <div className="mx-auto mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
           {featuredProjects.map((project) => (
             <ProjectCard key={project.id} project={project} />
           ))}

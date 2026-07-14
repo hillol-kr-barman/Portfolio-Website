@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTypewriter, Cursor } from 'react-simple-typewriter'
 import { ArrowRightIcon } from '@heroicons/react/24/solid'
 import type { AuthUser } from '@hillolbarman/ui'
-import { ProjectCard } from '@hillolbarman/ui'
+import ProjectCard from '../components/ProjectCard'
 import BackgroundBeams from '../components/BackgroundBeams'
 import coffeeCup from '../assets/coffeeCup.svg'
 import { techStackLogos, projects, featuredProjectIds } from './pageData/homePageData'
@@ -162,7 +162,7 @@ export default function HomePage({ onNavigate, currentUser, onLogout, currentPat
             onClick={(e) => { e.preventDefault(); onNavigate('/projects') }}
             className="inline-flex shrink-0 items-center justify-center gap-x-2 rounded-md bg-accent px-3.5 py-2.5 text-sm font-semibold text-black transition-shadow duration-300 hover:shadow-[0_0_22px_color-mix(in_srgb,var(--color-accent)_55%,transparent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
-            View Project Details
+            View All Projects
             <ArrowRightIcon aria-hidden="true" className="size-4" />
           </button>
           <div className="border-t border-white/10" />

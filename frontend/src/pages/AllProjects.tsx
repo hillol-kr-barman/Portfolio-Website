@@ -17,9 +17,9 @@ export default function AllProjects({ onNavigate, currentUser, onLogout, current
       <AppHeader onNavigate={onNavigate} currentUser={currentUser} onLogout={onLogout} currentPath={currentPath} />
 
       <main className="mx-auto max-w-6xl px-5 pb-20 pt-28 lg:px-6">
-        <h1 className="type-page-title text-center">Current Project</h1>
+        <h1 className="type-page-title text-center">All Projects</h1>
         <p className="mx-auto mt-3 max-w-2xl text-center text-sm/7 text-muted">
-          This is the project I am currently developing and improving.
+          These are the projects I am currently developing and improving.
         </p>
 
         <div className="mt-10 grid grid-cols-1 gap-5">

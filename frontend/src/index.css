@@ -1,41 +1,282 @@
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@300..800&family=Geist+Mono:wght@400;500&display=swap");
 @import "@hillolbarman/ui/styles.css";
 @import "tailwindcss";
 @source "../node_modules/@hillolbarman/ui/src/**/*.tsx";
 
+/* =============================================================================
+   Portfolio redesign tokens — documentation-site aesthetic.
+
+   The accent moved off #9eff1f (near-maximum chroma lime) to #34d399 — roughly
+   half the chroma at an emerald hue. It is a *state* colour: active nav dot,
+   live status, code strings, share-on, active document. At most two or three
+   accent marks per screen; a fourth candidate becomes --color-bright instead.
+   Primary buttons are near-white, not green.
+   ========================================================================== */
+
 @theme {
-  --color-accent:        #9eff1f;
-  --color-accent-strong: #7acc00;
+  /* ── Surfaces ─────────────────────────────────────────────────────────── */
+  --color-canvas:  #03070c;   /* page canvas */
+  --color-panel:   #080d13;   /* code panels, editor body, active editor tab */
+  --color-raised:  #0a0f15;   /* modal / dialog surface */
+
+  /* ── Accent ───────────────────────────────────────────────────────────── */
+  --color-accent:        #34d399;
+  --color-accent-strong: #5fdcaa;
+
+  /* ── Text ramp ────────────────────────────────────────────────────────── */
+  --color-ink:     #f5f7f8;   /* page headings */
+  --color-strong:  #eff2f4;   /* section headings, card titles */
+  --color-bright:  #e8ecef;   /* active nav item, input values */
+  --color-body:    #8e99a3;   /* body copy */
+  --color-dim:     #8b96a0;   /* secondary body, list items, code default */
+  --color-muted:   #7c8892;   /* inactive nav, meta, chips */
+  --color-meta:    #6b7680;   /* mono metadata */
+  --color-label:   #5b6570;   /* mono eyebrow labels, form labels */
+  --color-faint:   #4c5761;   /* timestamps, code comments, placeholders */
+  --color-ghost:   #3f4a54;   /* list index numerals */
+  --color-gutter:  #333d46;   /* line-number gutter */
+
+  /* ── Code syntax ──────────────────────────────────────────────────────── */
+  --color-code-kw:      #c3cbd2;
+  --color-code-comment: #5f6a74;
+
+  /* ── Lines ────────────────────────────────────────────────────────────── */
+  --color-hair:       rgba(255, 255, 255, 0.07);  /* section rules, panels */
+  --color-hair-soft:  rgba(255, 255, 255, 0.05);  /* gutter divider */
+  --color-input:      rgba(255, 255, 255, 0.1);   /* inputs, chips, pills */
+  --color-edge:       rgba(255, 255, 255, 0.12);  /* secondary buttons */
+
+  /* ── Buttons ──────────────────────────────────────────────────────────── */
+  --color-btn:      #e9eef1;
+  --color-btn-ink:  #04120c;
+  --color-btn2:     #cfd7dc;
+
+  /* ── Semantic ─────────────────────────────────────────────────────────── */
+  --color-danger: #b5413b;
+
+  /* ── Typography ───────────────────────────────────────────────────────── */
+  --font-sans: Geist, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* ── Shadow ───────────────────────────────────────────────────────────────
+     The only shadow in the system: floating code panels.
+  ────────────────────────────────────────────────────────────────────────── */
+  --shadow-panel: 0 24px 60px -20px rgba(0, 0, 0, 0.8);
+
+  /* ── Overrides for @hillolbarman/ui component internals ───────────────── */
+  --color-background:      #03070c;
+  --color-background-soft: #080d13;
+  --color-surface:         #0a0f15;
+  --color-surface-strong:  #080d13;
+  --color-text:            #eff2f4;
+  --color-subtle:          #5b6570;
+  --color-border:          rgba(255, 255, 255, 0.07);
 }
 
-.background-beams {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--color-accent) 12%, transparent), transparent 34%),
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.05), transparent 28%);
+:root {
+  --color-border-strong: rgba(52, 211, 153, 0.4);
+  --color-soft:          rgba(52, 211, 153, 0.07);
+  --shadow-button:       none;
 }
 
-.background-beams__svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 1;
-}
+/* =============================================================================
+   Element defaults
 
-.background-beams__fade {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at top center, rgba(255, 255, 255, 0.08), transparent 32%),
-    linear-gradient(180deg, transparent 40%, var(--color-background) 100%);
-}
+   @hillolbarman/ui ships a base layer that makes every bare <a> mono, accent
+   coloured and weight 500, every <h1>–<h4> weight 700 with a bottom margin, and
+   every <p> 0.95rem/muted. The redesign drives all of that from utilities
+   instead, so the element defaults are reset here. Same @layer base, declared
+   later, so these win at equal specificity.
+   ========================================================================== */
 
-@media (prefers-reduced-motion: reduce) {
-  .background-beams__svg animate {
-    display: none;
+@layer base {
+  html {
+    background: var(--color-canvas);
+    color: var(--color-strong);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background: var(--color-canvas);
+    color: var(--color-body);
+    font-family: var(--font-sans);
+  }
+
+  a {
+    color: inherit;
+    font-family: inherit;
+    font-weight: inherit;
+    overflow-wrap: normal;
+    text-decoration: none;
+  }
+  a:hover { opacity: 1; }
+
+  h1, h2, h3, h4, h5, h6 {
+    color: inherit;
+    font-family: var(--font-sans);
+    font-size: inherit;
+    font-weight: inherit;
+    letter-spacing: inherit;
+    line-height: inherit;
+    margin: 0;
+    overflow-wrap: normal;
+    text-transform: none;
+  }
+
+  p {
+    color: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    margin: 0;
+    overflow-wrap: normal;
+  }
+
+  ul, ol { margin: 0; }
+
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  button:focus-visible {
+    outline: 2px solid rgba(52, 211, 153, 0.5);
+    outline-offset: 2px;
   }
 }
 
+@layer components {
+  /* ── Canvas grid ────────────────────────────────────────────────────────
+     56x56 hairline overlay on every page frame except the playground, which
+     is dense enough already.
+  ──────────────────────────────────────────────────────────────────────── */
+  .canvas-grid {
+    background-color: var(--color-canvas);
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+
+  /* ── Mono eyebrow ─────────────────────────────────────────────────────── */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    line-height: 1.4;
+    text-transform: uppercase;
+    color: var(--color-label);
+  }
+
+  .eyebrow-tight {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    line-height: 1.4;
+    text-transform: uppercase;
+    color: var(--color-label);
+  }
+
+  /* ── Buttons ────────────────────────────────────────────────────────────
+     Primary is near-white. No accent fill, no glow — that belonged to the
+     old loud-green system.
+  ──────────────────────────────────────────────────────────────────────── */
+  .btn-primary,
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 8px;
+    padding: 11px 20px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 180ms ease-out, border-color 180ms ease-out,
+      color 180ms ease-out;
+  }
+
+  .btn-primary {
+    background: var(--color-btn);
+    color: var(--color-btn-ink);
+    border: 1px solid transparent;
+  }
+  .btn-primary:hover { background: #dfe5e9; }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--color-btn2);
+    border: 1px solid var(--color-edge);
+  }
+  .btn-secondary:hover { border-color: rgba(255, 255, 255, 0.2); }
+
+  .btn-primary:disabled,
+  .btn-secondary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  .btn-sm { padding: 8px 14px; font-size: 12.5px; border-radius: 7px; }
+
+  /* Destructive sits in the palette — a dusty red, not red-500. */
+  .btn-danger {
+    background: transparent;
+    color: var(--color-danger);
+    border: 1px solid color-mix(in srgb, var(--color-danger) 40%, transparent);
+  }
+  .btn-danger:hover {
+    background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+    border-color: var(--color-danger);
+  }
+
+  /* ── Chips, pills ───────────────────────────────────────────────────── */
+  .chip {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--color-muted);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 4px 9px;
+    transition: border-color 180ms ease-out, color 180ms ease-out;
+  }
+
+  /* ── Form fields ────────────────────────────────────────────────────────
+     Focus tints the border. No glow ring.
+  ──────────────────────────────────────────────────────────────────────── */
+  .field {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--color-input);
+    border-radius: 9px;
+    padding: 11px 14px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 450;
+    color: var(--color-bright);
+    transition: border-color 180ms ease-out;
+  }
+  .field::placeholder { color: var(--color-faint); }
+  .field:focus {
+    outline: none;
+    border-color: rgba(52, 211, 153, 0.4);
+  }
+  .field-mono { font-family: var(--font-mono); }
+
+  /* ── Hover lift on cards and list rows ──────────────────────────────────
+     Border only — no translate, no scale.
+  ──────────────────────────────────────────────────────────────────────── */
+  .row-hover {
+    transition: border-color 180ms ease-out;
+  }
+  .row-hover:hover { border-color: rgba(255, 255, 255, 0.14); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

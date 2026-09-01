@@ -1,16 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import type { AuthUser } from '@hillolbarman/ui'
-import { AuthPage } from '@hillolbarman/ui'
-import logo from './assets/logo_green.svg'
-import {
-  loginUser,
-  logoutUser,
-  registerUser,
-  requestPasswordReset,
-  updatePassword,
-  getCurrentUser,
-} from './lib/playgroundStore'
+import { logoutUser, getCurrentUser } from './lib/playgroundStore'
 import HomePage from './pages/HomePage'
 
 const AllProjects = lazy(() => import('./pages/AllProjects'))
@@ -19,6 +10,9 @@ const Playground = lazy(() => import('./pages/Playground'))
 const BuyMeCoffee = lazy(() => import('./pages/BuyMeCoffee'))
 const UnderConstruction = lazy(() => import('./pages/UnderConstruction'))
 const NotFound = lazy(() => import('./pages/NotFound'))
+const LogIn = lazy(() => import('./pages/LogIn'))
+const SignUp = lazy(() => import('./pages/SignUp'))
+const PasswordRecovery = lazy(() => import('./pages/PasswordRecovery'))
 
 function normalizePath(pathname: string): string {
   if (!pathname || pathname === '/') return '/'
@@ -155,55 +149,46 @@ export default function App() {
   const handleLogout = async () => {
     await logoutUser()
     setCurrentUser(null)
+    navigate('/')
   }
 
   const renderLazyPage = (node: React.ReactNode) => (
-    <Suspense fallback={null}>{node}</Suspense>
+    <Suspense fallback={<div className="min-h-screen bg-canvas" />}>{node}</Suspense>
   )
-
-  const authMode =
-    route.path === '/register'
-      ? 'register'
-      : route.path === '/forgot-password'
-        ? 'forgot-password'
-        : route.path === '/reset-password'
-          ? 'reset-password'
-          : 'login'
-
-  const isAuthRoute =
-    route.path === '/login' ||
-    route.path === '/register' ||
-    route.path === '/forgot-password' ||
-    route.path === '/reset-password'
 
   if (isSiteUnderConstruction) {
     return renderLazyPage(<UnderConstruction />)
   }
 
-  if (isAuthRoute) {
-    return (
-      <AuthPage
-        mode={authMode}
-        logoSrc={logo}
-        logoAlt="Hillol Barman"
+  // ── Auth routes ───────────────────────────────────────────────────────────
+  if (route.path === '/login') {
+    return renderLazyPage(
+      <LogIn onNavigate={navigate} routeSearch={route.search} onAuthChange={handleAuthChange} />,
+    )
+  }
+
+  // `/register` is the historic path; the redesign names the screen `/signup`.
+  if (route.path === '/signup' || route.path === '/register') {
+    return renderLazyPage(
+      <SignUp onNavigate={navigate} routeSearch={route.search} onAuthChange={handleAuthChange} />,
+    )
+  }
+
+  if (route.path === '/forgot-password' || route.path === '/reset-password') {
+    return renderLazyPage(
+      <PasswordRecovery
+        mode={route.path === '/reset-password' || isPasswordRecoveryActive ? 'reset' : 'forgot'}
         onNavigate={navigate}
-        routeSearch={route.search}
-        currentUser={currentUser}
         onAuthChange={handleAuthChange}
-        isPasswordRecoveryActive={isPasswordRecoveryActive}
         onPasswordRecoveryConsumed={() => {
           window.sessionStorage.removeItem(PASSWORD_RECOVERY_FLAG)
           setIsPasswordRecoveryActive(false)
         }}
-        onLogin={loginUser}
-        onRegister={registerUser}
-        onForgotPassword={requestPasswordReset}
-        onResetPassword={updatePassword}
-        onLogout={logoutUser}
-      />
+      />,
     )
   }
 
+  // ── Content routes ────────────────────────────────────────────────────────
   if (route.path === '/projects') {
     return renderLazyPage(
       <AllProjects onNavigate={navigate} currentUser={currentUser} onLogout={handleLogout} currentPath={route.path} />,

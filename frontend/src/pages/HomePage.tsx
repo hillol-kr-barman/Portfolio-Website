@@ -1,13 +1,9 @@
 import { useState } from 'react'
-import { useTypewriter, Cursor } from 'react-simple-typewriter'
-import { ArrowRightIcon } from '@heroicons/react/24/solid'
 import type { AuthUser } from '@hillolbarman/ui'
-import ProjectCard from '../components/ProjectCard'
-import BackgroundBeams from '../components/BackgroundBeams'
-import coffeeCup from '../assets/coffeeCup.svg'
-import { techStackLogos, projects, featuredProjectIds } from './pageData/homePageData'
-import AppHeader from '../components/AppHeader'
-import AppFooter from '../components/AppFooter'
+import PageShell from '../components/PageShell'
+import SectionRule from '../components/SectionRule'
+import CodePanel, { Cm, Kw, Str } from '../components/CodePanel'
+import { projects, featuredProjectIds, stackPanel, techStackLogos } from './pageData/homePageData'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
 
@@ -22,18 +18,6 @@ export default function HomePage({ onNavigate, currentUser, onLogout, currentPat
   const [newsletterEmail, setNewsletterEmail] = useState('')
   const [newsletterMessage, setNewsletterMessage] = useState('')
   const [isNewsletterSubmitting, setIsNewsletterSubmitting] = useState(false)
-  const [typingDone, setTypingDone] = useState(false)
-
-  const [text] = useTypewriter({
-    words: ['Think.', 'Plan.', 'Build.', 'Ship.', 'Think. Plan. Build. Ship.'],
-    loop: 1,
-    typeSpeed: 90,
-    deleteSpeed: 45,
-    delaySpeed: 800,
-    onLoopDone: () => setTypingDone(true),
-  })
-
-  const displayText = typingDone ? 'Think. Plan. Build. Ship.' : text
 
   const handleNavigate = (event: React.MouseEvent<HTMLAnchorElement>, to: string) => {
     event.preventDefault()
@@ -90,168 +74,175 @@ export default function HomePage({ onNavigate, currentUser, onLogout, currentPat
     .filter((p): p is NonNullable<typeof p> => p !== undefined)
 
   return (
-    <div className="relative">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[70vh] -z-10 overflow-hidden">
-        <BackgroundBeams />
-      </div>
-
-      <AppHeader onNavigate={onNavigate} currentUser={currentUser} onLogout={onLogout} currentPath={currentPath} />
-
-      {/* Hero Section */}
-      <div className="relative isolate pt-10">
-        <div className="mx-auto max-w-6xl px-5 pb-18 pt-10 sm:pb-22 lg:px-6 lg:pb-24 lg:pt-18 mt-10">
-          <div className="mx-auto flex max-w-4xl flex-col items-center text-center">
-            <p className="type-eyebrow">
-              Backend Focused Full Stack Software Engineer
-            </p>
-            <h1 className="type-hero mt-5 max-w-3xl text-balance">
-              {displayText}
-              {!typingDone && <Cursor cursorBlinking />}
-            </h1>
-            <p className="type-body mt-6 max-w-2xl text-pretty">
-              I design and develop responsive web products with a focus on maintainable code, clear user journeys, and dependable full-stack implementation.
-            </p>
-            <div className="mt-7 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-center">
-              <a
-                href="/projects"
-                onClick={(e) => handleNavigate(e, '/projects')}
-                className="inline-flex items-center justify-center gap-x-2 rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-black transition-shadow duration-300 hover:shadow-[0_0_22px_color-mix(in_srgb,var(--color-accent)_55%,transparent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-              >
-                View Projects
-                <ArrowRightIcon aria-hidden="true" className="size-4" />
-              </a>
-            </div>
+    <PageShell
+      onNavigate={onNavigate}
+      currentPath={currentPath}
+      currentUser={currentUser}
+      onLogout={onLogout}
+    >
+      {/* ── Hero ──────────────────────────────────────────────────────────── */}
+      <div className="grid items-center gap-12 px-5 pb-16 pt-14 sm:px-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14 lg:pb-24 lg:pt-[88px]">
+        <div>
+          <div className="inline-flex items-center gap-[9px] rounded-full border border-input py-[5px] pl-2.5 pr-[13px] font-mono text-[12px] text-[#98a3ac]">
+            <span className="size-1.5 rounded-full bg-accent shadow-[0_0_0_3px_rgba(52,211,153,.16)]" />
+            Available for opportunities
           </div>
-        </div>
-      </div>
 
-      {/* Primary Technologies */}
-      <div className="mx-auto mt-24 max-w-6xl px-4 sm:mt-28 sm:px-5 lg:px-6">
-        <div className="relative isolate overflow-hidden bg-surface rounded-3xl px-5 py-14 text-center after:pointer-events-none after:absolute after:inset-0 after:inset-ring after:inset-ring-white/10 after:rounded-3xl sm:px-10">
-          <h4 className="type-section-title mx-auto max-w-2xl">Primary Technologies</h4>
-          <p className="type-body mx-auto mt-4 max-w-3xl">
-            These are the technologies I use to build performant interfaces, reliable APIs, and maintainable product foundations.
-            I choose tools based on product requirements, scalability, and long-term maintainability.
+          <h1 className="mt-6 text-[clamp(2.5rem,7vw,68px)] font-semibold leading-[1.04] tracking-[-0.045em] text-ink">
+            Think. Plan.<br />Build. Ship.
+          </h1>
+
+          <p className="mt-6 max-w-[52ch] text-[clamp(16px,2.2vw,18px)] leading-[1.7] text-body text-pretty">
+            I design and develop responsive web products with a focus on maintainable code, clear user
+            journeys, and dependable full-stack implementation.
           </p>
-          <div className="mx-auto mt-12 grid max-w-4xl grid-cols-2 items-center justify-items-center gap-x-8 gap-y-8 opacity-60 sm:grid-cols-3 lg:max-w-none lg:grid-cols-7">
-            {techStackLogos.map((logo) => (
-              <img key={logo.name} alt={logo.name} src={logo.src} width={48} height={48} className="h-12 w-12 object-contain" />
-            ))}
+
+          <div className="mt-[34px] flex flex-wrap gap-3">
+            <a href="/projects" onClick={(e) => handleNavigate(e, '/projects')} className="btn-primary">
+              View Projects <span aria-hidden="true">→</span>
+            </a>
+            <a href="/HillolBarman_Resume.pdf" download className="btn-secondary">
+              Download CV
+            </a>
           </div>
-          <div className="type-eyebrow mt-14 items-center justify-center">This site runs on</div>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3 text-sm text-gray-300">
-            {['React', 'Fast API', 'Supabase', 'Tailwind', 'Stripe'].map((tech) => (
-              <span key={tech} className="rounded-full border font-mono border-accent/10 bg-accent/5 px-4 py-2">{tech}</span>
-            ))}
-          </div>
+
+          <p className="eyebrow mt-10">Backend Focused Full Stack Software Engineer</p>
         </div>
+
+        <CodePanel filename="stack.ts">
+          <Cm>// what I reach for</Cm>{'\n'}
+          <Kw>export const</Kw>{' stack = {\n'}
+          {stackPanel.map(({ key, values }) => (
+            <span key={key}>
+              {`  ${(key + ':').padEnd(10)}[`}
+              {values.map((value, i) => (
+                <span key={value}>
+                  <Str>{`'${value}'`}</Str>
+                  {i < values.length - 1 ? ', ' : ''}
+                </span>
+              ))}
+              {'],\n'}
+            </span>
+          ))}
+          {'}'}
+        </CodePanel>
       </div>
 
-      {/* Featured Projects */}
-      <div className="mx-auto mb-24 mt-32 max-w-6xl px-5 lg:px-6">
-        <h2 className="type-section-title text-center">Featured Projects</h2>
-        <div className="mx-auto mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {featuredProjects.map((project) => (
-            <ProjectCard key={project.id} project={project} />
+      {/* ── 01 — Primary Technologies ─────────────────────────────────────── */}
+      <SectionRule index="01" label="Primary Technologies" className="border-t border-hair">
+        <p className="m-0 max-w-[74ch] text-[17px] leading-[1.7] text-body text-pretty">
+          These are the technologies I use to build performant interfaces, reliable APIs, and
+          maintainable product foundations. I choose tools based on product requirements,
+          scalability, and long-term maintainability.
+        </p>
+        <div className="mt-7 flex flex-wrap gap-3">
+          {techStackLogos.map((logo) => (
+            <div
+              key={logo.name}
+              title={logo.name}
+              className="row-hover flex size-[52px] items-center justify-center rounded-xl border border-hair"
+            >
+              <img
+                src={logo.src}
+                alt={logo.name}
+                width={24}
+                height={24}
+                loading="lazy"
+                className="size-6 object-contain opacity-60"
+              />
+            </div>
           ))}
         </div>
-        <div className="mt-8 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4">
-          <div className="border-t border-white/10" />
-          <button
-            type="button"
-            onClick={(e) => { e.preventDefault(); onNavigate('/projects') }}
-            className="inline-flex shrink-0 items-center justify-center gap-x-2 rounded-md bg-accent px-3.5 py-2.5 text-sm font-semibold text-black transition-shadow duration-300 hover:shadow-[0_0_22px_color-mix(in_srgb,var(--color-accent)_55%,transparent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-          >
-            View All Projects
-            <ArrowRightIcon aria-hidden="true" className="size-4" />
-          </button>
-          <div className="border-t border-white/10" />
-        </div>
-      </div>
+      </SectionRule>
 
-      {/* Newsletter */}
-      <div className="mx-auto max-w-6xl px-5 py-6 lg:px-6">
-        <section className="rounded-[28px] border border-white/10 bg-surface/80 px-5 py-6 sm:px-6 sm:py-7">
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] lg:items-center">
-            <div className="flex justify-center lg:justify-start lg:border-r lg:border-white/10 lg:pr-8">
-              <div className="max-w-2xl text-center lg:text-left">
-                <p className="type-eyebrow">Newsletter</p>
-                <h2 className="type-section-title mt-3">Receive Professional Updates</h2>
-                <p className="type-body mt-3 max-w-xl">
-                  I share occasional updates about projects, technical work, and professional availability.
+      {/* ── 02 — Featured Projects ────────────────────────────────────────── */}
+      <SectionRule index="02" label="Featured Projects">
+        <div className="flex flex-col">
+          {featuredProjects.map((project) => (
+            <a
+              key={project.id}
+              href={project.gitLink}
+              target="_blank"
+              rel="noreferrer"
+              className="row-hover grid gap-4 border-b border-hair py-6 sm:grid-cols-[1fr_auto] sm:gap-8"
+            >
+              <div>
+                <h3 className="m-0 text-[22px] font-semibold tracking-[-0.025em] text-strong">
+                  {project.title}
+                </h3>
+                <p className="mt-2.5 max-w-[70ch] text-[15px] leading-[1.7] text-dim text-pretty">
+                  {project.content}
+                </p>
+                <p className="mt-3 font-mono text-[12px] leading-[1.6] text-code-comment">
+                  {project.projectTechstack}
                 </p>
               </div>
-            </div>
-
-            <div className="flex justify-center">
-              <form onSubmit={handleNewsletterSubmit} className="w-full max-w-sm text-center">
-                <label htmlFor="newsletter-email" className="type-label block">Email address</label>
-                <input
-                  id="newsletter-email"
-                  name="newsletter-email"
-                  type="email"
-                  value={newsletterEmail}
-                  disabled={isNewsletterSubmitting}
-                  onChange={(e) => {
-                    setNewsletterEmail(e.target.value)
-                    if (newsletterMessage) setNewsletterMessage('')
-                  }}
-                  placeholder="you@example.com"
-                  className="mt-3 block w-full rounded-md border border-white/10 bg-background/60 px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:border-accent/60 focus:outline-none"
-                />
-                <button
-                  type="submit"
-                  disabled={isNewsletterSubmitting}
-                  className="mt-3 inline-flex w-full items-center justify-center rounded-md border border-accent bg-accent px-4 py-2.5 text-sm font-semibold text-black transition-shadow duration-300 hover:shadow-[0_0_22px_color-mix(in_srgb,var(--color-accent)_55%,transparent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                >
-                  {isNewsletterSubmitting ? 'Subscribing...' : 'Subscribe'}
-                </button>
-                <p className="type-label mt-3 min-h-9 text-gray-400">
-                  {newsletterMessage || 'Enter your email to receive occasional updates.'}
-                </p>
-              </form>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      {/* Professional Availability */}
-      <div className="mx-auto max-w-6xl px-5 py-14 sm:py-16 lg:px-6">
-        <div className="rounded-3xl border border-dashed border-white/15 bg-background/30 px-5 py-6 sm:px-6 sm:py-6">
-          <div className="grid items-center gap-5 lg:grid-cols-4">
-            <div className="col-span-3 max-w-2xl">
-              <p className="type-eyebrow">Professional Availability</p>
-              <h2 className="type-section-title mt-3 max-w-xl text-balance">Interested in discussing an opportunity?</h2>
-              <p className="type-body mt-3 max-w-xl">
-                I am available to discuss software engineering roles, freelance projects, and collaborative product work.
-              </p>
-              <div className="mt-5 flex flex-wrap items-center gap-4">
-                <a
-                  href="/about"
-                  onClick={(e) => handleNavigate(e, '/about')}
-                  className="rounded-md bg-accent px-3.5 py-2.5 text-sm font-semibold text-black transition-shadow duration-300 hover:shadow-[0_0_22px_color-mix(in_srgb,var(--color-accent)_55%,transparent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                >
-                  Contact Me
-                </a>
-                <a
-                  href="/HillolBarman_Resume.pdf"
-                  download
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-gray-300 transition-colors hover:text-white"
-                >
-                  Download CV <span aria-hidden="true">→</span>
-                </a>
-              </div>
-            </div>
-            <div className="flex items-center justify-end">
-              <div className="flex h-28 w-28 items-center justify-center rounded-2xl border border-white/10 bg-surface sm:h-32 sm:w-32">
-                <img src={coffeeCup} alt="Coffee cup illustration" className="block h-20 w-20 object-contain sm:h-24 sm:w-24" />
-              </div>
-            </div>
-          </div>
+              <span className="whitespace-nowrap text-[13px] font-semibold text-btn2">
+                Repository <span aria-hidden="true">→</span>
+              </span>
+            </a>
+          ))}
         </div>
-      </div>
+      </SectionRule>
 
-      <AppFooter />
-    </div>
+      {/* ── 03 — Newsletter ───────────────────────────────────────────────── */}
+      <SectionRule index="03" label="Newsletter">
+        <div className="grid gap-8 lg:grid-cols-[1fr_minmax(0,340px)] lg:gap-14">
+          <div>
+            <h3 className="m-0 text-[22px] font-semibold tracking-[-0.025em] text-strong">
+              Receive Professional Updates
+            </h3>
+            <p className="mt-2.5 max-w-[60ch] text-[15px] leading-[1.7] text-dim text-pretty">
+              I share occasional updates about projects, technical work, and professional
+              availability.
+            </p>
+          </div>
+
+          <form onSubmit={handleNewsletterSubmit} className="w-full">
+            <label htmlFor="newsletter-email" className="eyebrow block">
+              Email address
+            </label>
+            <input
+              id="newsletter-email"
+              name="newsletter-email"
+              type="email"
+              value={newsletterEmail}
+              disabled={isNewsletterSubmitting}
+              onChange={(e) => {
+                setNewsletterEmail(e.target.value)
+                if (newsletterMessage) setNewsletterMessage('')
+              }}
+              placeholder="you@example.com"
+              className="field mt-2.5"
+            />
+            <button type="submit" disabled={isNewsletterSubmitting} className="btn-primary mt-2.5 w-full">
+              {isNewsletterSubmitting ? 'Subscribing…' : 'Subscribe'}
+            </button>
+            <p className="mt-3 min-h-8 font-mono text-[11.5px] leading-[1.6] text-faint">
+              {newsletterMessage || 'Enter your email to receive occasional updates.'}
+            </p>
+          </form>
+        </div>
+      </SectionRule>
+
+      {/* ── 04 — Availability ─────────────────────────────────────────────── */}
+      <SectionRule index="04" label="Availability" last>
+        <h3 className="m-0 max-w-[24ch] text-[22px] font-semibold tracking-[-0.025em] text-strong">
+          Interested in discussing an opportunity?
+        </h3>
+        <p className="mt-2.5 max-w-[70ch] text-[15px] leading-[1.7] text-dim text-pretty">
+          I am available to discuss software engineering roles, freelance projects, and
+          collaborative product work.
+        </p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <a href="/about" onClick={(e) => handleNavigate(e, '/about')} className="btn-primary">
+            Contact Me
+          </a>
+          <a href="/coffee" onClick={(e) => handleNavigate(e, '/coffee')} className="btn-secondary">
+            Support My Work
+          </a>
+        </div>
+      </SectionRule>
+    </PageShell>
   )
 }

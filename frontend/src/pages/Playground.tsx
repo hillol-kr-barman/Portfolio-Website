@@ -1,7 +1,19 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
-import { CloudArrowUpIcon } from '@heroicons/react/24/solid'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Dialog, DialogPanel } from '@headlessui/react'
+import { XMarkIcon } from '@heroicons/react/24/outline'
 import type { AuthUser } from '@hillolbarman/ui'
-import { AlertDialogBox, ConfirmationMessage, ShareDocumentModal } from '@hillolbarman/ui'
+import type { Monaco } from '@monaco-editor/react'
+import AppHeader from '../components/AppHeader'
+import SharedSnippetView from '../components/SharedSnippetView'
+import { ConfirmDialog, ShareDialog } from '../components/Dialogs'
+import { PLAYGROUND_THEME, defineEditorTheme } from '../components/EditorTheme'
+import {
+  LANGUAGE_BADGES,
+  LANGUAGE_LABELS,
+  getStarterSnippet,
+  languageOptions,
+  relativeTime,
+} from '../lib/playgroundLanguages'
 import {
   deleteAllDocumentsForUser,
   deleteDocument,
@@ -10,72 +22,8 @@ import {
   saveDocument,
   type PlaygroundDocument,
 } from '../lib/playgroundStore'
-import AppHeader from '../components/AppHeader'
-import AppFooter from '../components/AppFooter'
 
 const Editor = lazy(() => import('@monaco-editor/react'))
-
-const languageOptions = [
-  { value: 'javascript', label: 'JavaScript' },
-  { value: 'typescript', label: 'TypeScript' },
-  { value: 'python', label: 'Python' },
-  { value: 'html', label: 'HTML' },
-  { value: 'css', label: 'CSS' },
-  { value: 'json', label: 'JSON' },
-]
-
-const starterSnippets: Record<string, string> = {
-  javascript: `function greet(name) {
-  return \`Hello, \${name}.\`
-}
-
-console.log(greet('developer'))
-`,
-  typescript: `function greet(name: string): string {
-  return \`Hello, \${name}.\`
-}
-
-console.log(greet('developer'))
-`,
-  python: `def greet(name):
-    return f"Hello, {name}."
-
-
-print(greet("developer"))
-`,
-  html: `<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Playground</title>
-  </head>
-  <body>
-    <h1>Hello, developer.</h1>
-  </body>
-</html>
-`,
-  css: `body {
-  margin: 0;
-  font-family: sans-serif;
-  background: #101010;
-  color: #f5f5f5;
-}
-
-h1 {
-  color: #9eff1f;
-}
-`,
-  json: `{
-  "message": "Hello, developer.",
-  "language": "json"
-}
-`,
-}
-
-function getStarterSnippet(language: string): string {
-  return starterSnippets[language] ?? starterSnippets['javascript']!
-}
 
 interface PlaygroundProps {
   onNavigate: (to: string) => void
@@ -84,464 +32,732 @@ interface PlaygroundProps {
   onLogout?: () => void
 }
 
+interface ActivityEntry {
+  at: string
+  message: string
+}
+
+const NEW_DOCUMENT_TITLE = 'Untitled snippet'
+
+function shareUrlFor(token: string) {
+  return `${window.location.origin}/playground?share=${token}`
+}
+
 export default function Playground({ onNavigate, routeSearch = '', currentUser, onLogout }: PlaygroundProps) {
   const [documents, setDocuments] = useState<PlaygroundDocument[]>([])
   const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null)
-  const [isCreatingNew, setIsCreatingNew] = useState(true)
-  const [title, setTitle] = useState('Untitled snippet')
+  const [openTabIds, setOpenTabIds] = useState<string[]>([])
+  const [title, setTitle] = useState(NEW_DOCUMENT_TITLE)
   const [language, setLanguage] = useState('javascript')
   const [code, setCode] = useState(getStarterSnippet('javascript'))
-  const [notice, setNotice] = useState('')
-  const [showSaveConfirmation, setShowSaveConfirmation] = useState(false)
-  const [shareModalOpen, setShareModalOpen] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
+  const [search, setSearch] = useState('')
+  const [cursor, setCursor] = useState({ line: 1, column: 1 })
+  const [activity, setActivity] = useState<ActivityEntry[]>([])
+  const [error, setError] = useState('')
+
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [shareUrl, setShareUrl] = useState('')
-  const [documentPendingDelete, setDocumentPendingDelete] = useState<PlaygroundDocument | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<PlaygroundDocument | null>(null)
   const [deleteMode, setDeleteMode] = useState<'single' | 'all' | null>(null)
 
+  const [railOpen, setRailOpen] = useState(false)
+  const [sharedDocument, setSharedDocument] = useState<PlaygroundDocument | null>(null)
+  const [isResolvingShare, setIsResolvingShare] = useState(false)
+
+  const shareToken = useMemo(() => new URLSearchParams(routeSearch).get('share'), [routeSearch])
+  const activeDocument = documents.find((doc) => doc.id === activeDocumentId) ?? null
+
+  const logActivity = useCallback((message: string) => {
+    const at = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+    setActivity((entries) => [{ at, message }, ...entries].slice(0, 8))
+  }, [])
+
   const refreshDocuments = useCallback(async () => {
-    const nextDocuments = currentUser ? await listDocumentsForUser(currentUser.id) : []
-    setDocuments(nextDocuments)
+    if (!currentUser) {
+      setDocuments([])
+      return []
+    }
+    const next = await listDocumentsForUser(currentUser.id)
+    setDocuments(next)
+    return next
   }, [currentUser])
 
+  // ── Document list ─────────────────────────────────────────────────────────
   useEffect(() => {
     let isActive = true
 
-    const loadDocuments = async () => {
-      try {
-        const nextDocuments = currentUser ? await listDocumentsForUser(currentUser.id) : []
-        if (isActive) setDocuments(nextDocuments)
-      } catch (error) {
-        if (isActive && error instanceof Error) setNotice(error.message)
-      }
+    refreshDocuments()
+      .catch((err) => { if (isActive && err instanceof Error) setError(err.message) })
+
+    return () => { isActive = false }
+  }, [refreshDocuments])
+
+  // ── Shared-link resolution ────────────────────────────────────────────────
+  useEffect(() => {
+    let isActive = true
+
+    if (!shareToken) {
+      setSharedDocument(null)
+      return
     }
 
-    loadDocuments()
-    return () => { isActive = false }
-  }, [currentUser])
-
-  useEffect(() => {
-    let isActive = true
-
-    const loadDocument = async () => {
-      const params = new URLSearchParams(routeSearch)
-      const shareToken = params.get('share')
-
-      if (shareToken) {
-        const sharedDoc = await getDocumentByShareToken(shareToken)
+    setIsResolvingShare(true)
+    getDocumentByShareToken(shareToken)
+      .then((doc) => {
         if (!isActive) return
-
-        if (sharedDoc) {
-          const isOwnerViewingSharedDoc = currentUser?.id === sharedDoc.ownerId
-          setActiveDocumentId(isOwnerViewingSharedDoc ? sharedDoc.id : null)
-          setIsCreatingNew(!isOwnerViewingSharedDoc)
-          setTitle(sharedDoc.title)
-          setLanguage(sharedDoc.language)
-          setCode(sharedDoc.content)
-          setNotice(`Loaded shared doc: ${sharedDoc.title}`)
-        }
-        return
-      }
-
-      if (documents.length > 0 && !activeDocumentId && !isCreatingNew) {
-        const [firstDoc] = documents
-        if (firstDoc) {
-          setActiveDocumentId(firstDoc.id)
-          setIsCreatingNew(false)
-          setTitle(firstDoc.title)
-          setLanguage(firstDoc.language)
-          setCode(firstDoc.content)
-        }
-      }
-    }
-
-    loadDocument().catch((error) => {
-      if (isActive && error instanceof Error) setNotice(error.message)
-    })
+        setSharedDocument(doc)
+      })
+      .catch((err) => { if (isActive && err instanceof Error) setError(err.message) })
+      .finally(() => { if (isActive) setIsResolvingShare(false) })
 
     return () => { isActive = false }
-  }, [activeDocumentId, currentUser?.id, documents, isCreatingNew, routeSearch])
+  }, [shareToken])
 
-  useEffect(() => {
-    if (!showSaveConfirmation) return
-
-    const timer = window.setTimeout(() => setShowSaveConfirmation(false), 2500)
-    return () => window.clearTimeout(timer)
-  }, [showSaveConfirmation])
-
-  const openDocument = (doc: PlaygroundDocument) => {
+  const openDocument = useCallback((doc: PlaygroundDocument) => {
     setActiveDocumentId(doc.id)
-    setIsCreatingNew(false)
+    setOpenTabIds((ids) => (ids.includes(doc.id) ? ids : [...ids, doc.id]))
     setTitle(doc.title)
     setLanguage(doc.language)
     setCode(doc.content)
-    setNotice(`Opened ${doc.title}`)
-  }
+    setIsDirty(false)
+    setShareUrl(doc.isShared && doc.shareToken ? shareUrlFor(doc.shareToken) : '')
+    logActivity(`Opened ${doc.title}`)
+  }, [logActivity])
 
-  const handleNewDocument = () => {
+  const handleNewDocument = useCallback(() => {
     setActiveDocumentId(null)
-    setIsCreatingNew(true)
-    setTitle('Untitled snippet')
+    setTitle(NEW_DOCUMENT_TITLE)
     setLanguage('javascript')
     setCode(getStarterSnippet('javascript'))
     setShareUrl('')
-    setNotice('New snippet created.')
-  }
+    setIsDirty(true)
+    logActivity('New snippet created')
+  }, [logActivity])
 
   const handleLanguageChange = (nextLanguage: string) => {
-    const nextStarter = getStarterSnippet(nextLanguage)
-    const currentStarter = getStarterSnippet(language)
-    const shouldReplaceWithStarter = !activeDocumentId || code === currentStarter
-
+    const shouldReplaceWithStarter = !activeDocumentId || code === getStarterSnippet(language)
     setLanguage(nextLanguage)
-    if (shouldReplaceWithStarter) setCode(nextStarter)
+    if (shouldReplaceWithStarter) setCode(getStarterSnippet(nextLanguage))
+    setIsDirty(true)
   }
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!currentUser) {
       onNavigate('/login?redirect=/playground')
       return
     }
 
+    setError('')
+
     try {
-      const savedDoc = await saveDocument({
+      const saved = await saveDocument({
         id: activeDocumentId,
         title,
         content: code,
         language,
         ownerId: currentUser.id,
-        isShared: documents.find((item) => item.id === activeDocumentId)?.isShared ?? false,
+        isShared: activeDocument?.isShared ?? false,
       })
 
-      setActiveDocumentId(savedDoc.id)
-      setIsCreatingNew(false)
+      setActiveDocumentId(saved.id)
+      setOpenTabIds((ids) => (ids.includes(saved.id) ? ids : [...ids, saved.id]))
+      setIsDirty(false)
       await refreshDocuments()
-      setNotice('Document saved successfully.')
-      setShowSaveConfirmation(true)
-    } catch (error) {
-      if (error instanceof Error) setNotice(error.message)
+      logActivity('Saved to your account')
+    } catch (err) {
+      if (err instanceof Error) setError(err.message)
     }
-  }
+  }, [activeDocument, activeDocumentId, code, currentUser, language, logActivity, onNavigate, refreshDocuments, title])
 
-  const handleShare = async (docToShare?: PlaygroundDocument) => {
-    try {
-      const nextId = docToShare?.id ?? activeDocumentId
-      const nextTitle = docToShare?.title ?? title
-      const nextContent = docToShare?.content ?? code
-      const nextLanguage = docToShare?.language ?? language
-
-      const savedDoc = await saveDocument({
-        id: nextId,
-        title: nextTitle,
-        content: nextContent,
-        language: nextLanguage,
-        ownerId: currentUser?.id ?? '',
-        isShared: true,
-      })
-
-      setActiveDocumentId(savedDoc.id)
-      setIsCreatingNew(false)
-      await refreshDocuments()
-      setShareUrl(`${window.location.origin}/playground?share=${savedDoc.shareToken ?? ''}`)
-      setShareModalOpen(true)
-      setNotice('Share link created.')
-    } catch (error) {
-      if (error instanceof Error) setNotice(error.message)
-    }
-  }
-
-  const handleShareSavedDocument = async (event: React.MouseEvent, doc: PlaygroundDocument) => {
-    event.stopPropagation()
-    setActiveDocumentId(doc.id)
-    setTitle(doc.title)
-    setLanguage(doc.language)
-    setCode(doc.content)
-
-    if (doc.isShared) {
-      setShareUrl(`${window.location.origin}/playground?share=${doc.shareToken ?? ''}`)
-      setShareModalOpen(true)
+  const handleShare = useCallback(async () => {
+    if (!currentUser) {
+      onNavigate('/login?redirect=/playground')
       return
     }
 
-    await handleShare(doc)
-  }
+    setError('')
 
-  const handleDeleteDocument = (event: React.MouseEvent, doc: PlaygroundDocument) => {
+    try {
+      const saved = await saveDocument({
+        id: activeDocumentId,
+        title,
+        content: code,
+        language,
+        ownerId: currentUser.id,
+        isShared: true,
+      })
+
+      setActiveDocumentId(saved.id)
+      setIsDirty(false)
+      await refreshDocuments()
+      setShareUrl(shareUrlFor(saved.shareToken ?? ''))
+      setShareDialogOpen(true)
+      logActivity('Share link created')
+    } catch (err) {
+      if (err instanceof Error) setError(err.message)
+    }
+  }, [activeDocumentId, code, currentUser, language, logActivity, onNavigate, refreshDocuments, title])
+
+  const handleStopSharing = useCallback(async () => {
+    if (!currentUser || !activeDocumentId) return
+
+    try {
+      await saveDocument({
+        id: activeDocumentId,
+        title,
+        content: code,
+        language,
+        ownerId: currentUser.id,
+        isShared: false,
+      })
+      setShareUrl('')
+      await refreshDocuments()
+      logActivity('Sharing turned off')
+    } catch (err) {
+      if (err instanceof Error) setError(err.message)
+    }
+  }, [activeDocumentId, code, currentUser, language, logActivity, refreshDocuments, title])
+
+  // ── ⌘S save, ⌘N new ───────────────────────────────────────────────────────
+  const handlersRef = useRef({ handleSave, handleNewDocument })
+  handlersRef.current = { handleSave, handleNewDocument }
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey)) return
+
+      if (event.key.toLowerCase() === 's') {
+        event.preventDefault()
+        handlersRef.current.handleSave()
+      }
+
+      if (event.key.toLowerCase() === 'n') {
+        event.preventDefault()
+        handlersRef.current.handleNewDocument()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
+  const closeTab = (event: React.MouseEvent, id: string) => {
     event.stopPropagation()
-    setDeleteMode('single')
-    setDocumentPendingDelete(doc)
+    const remaining = openTabIds.filter((tabId) => tabId !== id)
+    setOpenTabIds(remaining)
+
+    if (activeDocumentId !== id) return
+
+    const next = documents.find((doc) => doc.id === remaining[remaining.length - 1])
+    if (next) openDocument(next)
+    else handleNewDocument()
   }
 
-  const handleDeleteAllDocuments = () => {
-    setDeleteMode('all')
-    setDocumentPendingDelete({ id: 'all-documents', title: 'all saved documents' } as PlaygroundDocument)
-  }
-
-  const closeDeleteDialog = () => {
-    setDeleteMode(null)
-    setDocumentPendingDelete(null)
-  }
-
-  const confirmDeleteDocument = async () => {
-    if (!documentPendingDelete) return
+  const confirmDelete = async () => {
+    if (!pendingDelete) return
 
     try {
       if (deleteMode === 'all') {
         await deleteAllDocumentsForUser(currentUser?.id ?? '')
         setDocuments([])
+        setOpenTabIds([])
         handleNewDocument()
-        setNotice('All saved documents deleted.')
-        setDocumentPendingDelete(null)
-        setDeleteMode(null)
-        return
-      }
+        logActivity('All documents deleted')
+      } else {
+        await deleteDocument(pendingDelete.id)
+        const remaining = await refreshDocuments()
+        setOpenTabIds((ids) => ids.filter((id) => id !== pendingDelete.id))
 
-      await deleteDocument(documentPendingDelete.id)
-
-      const remaining = documents.filter((item) => item.id !== documentPendingDelete.id)
-      setDocuments(remaining)
-
-      if (activeDocumentId === documentPendingDelete.id) {
-        const [nextDoc] = remaining
-        if (nextDoc) {
-          openDocument(nextDoc)
-        } else {
-          handleNewDocument()
+        if (activeDocumentId === pendingDelete.id) {
+          const next = remaining[0]
+          if (next) openDocument(next)
+          else handleNewDocument()
         }
+        logActivity(`Deleted ${pendingDelete.title}`)
       }
-
-      setNotice(`Deleted ${documentPendingDelete.title}.`)
-      setDocumentPendingDelete(null)
+    } catch (err) {
+      if (err instanceof Error) setError(err.message)
+    } finally {
+      setPendingDelete(null)
       setDeleteMode(null)
-    } catch (error) {
-      if (error instanceof Error) setNotice(error.message)
     }
   }
 
-  const storageMessage = currentUser ? (
-    <>
-      Showing all documents for{' '}
-      <span className="font-semibold text-accent">{currentUser.name}</span>. Saved files appear here.
-    </>
-  ) : (
-    'Sign in to save snippets and keep them synced off this device.'
+  const visibleDocuments = documents.filter((doc) =>
+    doc.title.toLowerCase().includes(search.trim().toLowerCase()),
   )
 
-  return (
-    <div>
-      <AppHeader onNavigate={onNavigate} currentUser={currentUser} onLogout={onLogout} currentPath="/playground" />
+  const openTabs = openTabIds
+    .map((id) => documents.find((doc) => doc.id === id))
+    .filter((doc): doc is PlaygroundDocument => doc !== undefined)
 
-      <main className="mx-auto max-w-7xl px-6 pb-20 pt-32 lg:px-8">
-        <div className="mx-auto max-w-3xl text-center">
-          <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">Code Playground</h1>
-          <p className="mx-auto mt-4 max-w-2xl text-sm/7 text-muted">
-            Create, save, and share code snippets from a browser-based development workspace.
-          </p>
+  // ── Shared-link recipient view ────────────────────────────────────────────
+  if (shareToken) {
+    if (isResolvingShare) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-canvas">
+          <p className="font-mono text-[12px] text-label">Loading shared snippet…</p>
         </div>
+      )
+    }
 
-        <div className="mt-10 grid gap-5 lg:grid-cols-[21rem_minmax(0,1fr)]">
-          <aside className="flex min-h-200 flex-col overflow-hidden rounded-3xl bg-surface p-4 outline -outline-offset-1 outline-white/10 lg:h-[calc(100vh-9rem)]">
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-base font-semibold text-white">Saved documents</h2>
-                <p className="type-body mt-1">{storageMessage}</p>
-              </div>
-            </div>
+    if (sharedDocument && sharedDocument.ownerId !== currentUser?.id) {
+      return <SharedSnippetView document={sharedDocument} onNavigate={onNavigate} />
+    }
 
-            {!currentUser ? (
-              <button
-                type="button"
-                onClick={() => onNavigate('/login?redirect=/playground')}
-                className="mt-5 w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-black shadow-none transition-shadow duration-300 hover:shadow-[0_0_22px_color-mix(in_srgb,var(--color-accent)_55%,transparent)]"
-              >
-                Log in to save your work
+    if (!sharedDocument) {
+      return (
+        <div className="min-h-screen bg-canvas">
+          <AppHeader onNavigate={onNavigate} currentPath="/playground" variant="read-only" marker="Shared snippet" />
+          <main className="px-5 py-20 sm:px-10">
+            <p className="eyebrow">Shared snippet</p>
+            <h1 className="mt-4 text-[clamp(2rem,5vw,40px)] font-semibold leading-[1.08] tracking-[-0.04em] text-ink">
+              Link no longer works
+            </h1>
+            <p className="mt-4 max-w-[46ch] text-[16px] leading-[1.7] text-body text-pretty">
+              This snippet is not shared any more, or the link was mistyped.
+            </p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <button type="button" onClick={() => onNavigate('/playground')} className="btn-primary">
+                Open the playground
               </button>
-            ) : null}
-
-            <div className="mt-4 flex-1 overflow-hidden">
-              <div className="h-full space-y-2.5 overflow-y-auto pr-1">
-                {documents.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-white/10 px-4 py-4 text-sm text-muted">
-                    {currentUser
-                      ? 'No saved documents yet. Save the current snippet to create your first document.'
-                      : 'Saved snippets will stack here.'}
-                  </div>
-                ) : (
-                  documents.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className={`flex items-stretch gap-2 rounded-2xl border p-2 transition ${
-                        activeDocumentId === doc.id
-                          ? 'border-accent bg-accent/10 shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-accent)_35%,transparent)]'
-                          : 'border-white/10 bg-black/20 hover:border-white/30'
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => openDocument(doc)}
-                        className="min-w-0 flex-1 rounded-xl px-2 py-1.5 text-left"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <p className="truncate text-sm font-semibold text-white">{doc.title}</p>
-                          {activeDocumentId === doc.id ? (
-                            <span className="shrink-0 rounded-full bg-accent/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">
-                              Open
-                            </span>
-                          ) : null}
-                        </div>
-                        <p className="mt-1 text-xs uppercase tracking-[0.2em] text-muted">{doc.language}</p>
-                        <p className="mt-2 text-xs text-muted">Updated {new Date(doc.updatedAt).toLocaleString()}</p>
-                      </button>
-                      <div className="flex shrink-0 flex-col gap-2">
-                        <button
-                          type="button"
-                          onClick={(e) => handleShareSavedDocument(e, doc)}
-                          className="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-white transition hover:border-accent hover:text-accent"
-                        >
-                          Share
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => handleDeleteDocument(e, doc)}
-                          className="rounded-xl border border-red-500/30 px-3 py-2 text-xs font-semibold text-white transition hover:border-red-500 hover:bg-red-500 hover:text-white"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
             </div>
+          </main>
+        </div>
+      )
+    }
+  }
 
+  const renderRail = () => (
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="border-b border-hair p-4">
+            <div className="flex items-center gap-2 rounded-lg border border-white/[0.09] px-[11px] py-2">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="shrink-0 text-label">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.5-3.5" />
+              </svg>
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search documents"
+                aria-label="Search documents"
+                className="w-full bg-transparent font-mono text-[12.5px] text-bright outline-none placeholder:text-label"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-baseline justify-between px-4 pb-2 pt-3.5">
+            <span className="eyebrow-tight">Documents</span>
+            <span className="font-mono text-[11px] text-ghost">{visibleDocuments.length}</span>
+          </div>
+
+          <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2.5 pb-3">
+            {visibleDocuments.length === 0 ? (
+              <p className="px-2.5 py-3 text-[12.5px] leading-[1.6] text-label">
+                {currentUser
+                  ? search
+                    ? 'No documents match that search.'
+                    : 'No saved documents yet. Save the current snippet to create your first one.'
+                  : 'Log in to keep snippets on your account.'}
+              </p>
+            ) : (
+              visibleDocuments.map((doc) => {
+                const isActive = doc.id === activeDocumentId
+                return (
+                  <div
+                    key={doc.id}
+                    className={`group flex items-center gap-2.5 rounded-lg px-2.5 py-[9px] transition-colors duration-150 ease-out ${
+                      isActive
+                        ? 'border border-accent/[0.22] bg-accent/[0.07]'
+                        : 'border border-transparent hover:border-white/[0.09]'
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => { openDocument(doc); setRailOpen(false) }}
+                      className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                    >
+                      <span
+                        className={`shrink-0 rounded font-mono text-[10px] ${
+                          isActive
+                            ? 'border border-accent/30 px-[5px] py-0.5 text-accent'
+                            : 'border border-edge px-[5px] py-0.5 text-muted'
+                        }`}
+                      >
+                        {LANGUAGE_BADGES[doc.language] ?? doc.language.slice(0, 2).toUpperCase()}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span
+                          className={`block truncate text-[13px] ${
+                            isActive ? 'font-semibold text-strong' : 'font-[450] text-[#b8c2c9]'
+                          }`}
+                        >
+                          {doc.title}
+                        </span>
+                        <span className={`mt-0.5 block font-mono text-[10.5px] ${isActive ? 'text-label' : 'text-faint'}`}>
+                          Edited {relativeTime(doc.updatedAt)}
+                        </span>
+                      </span>
+                    </button>
+
+                    {doc.isShared ? (
+                      <span title="Shared" className="shrink-0">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={isActive ? '#34d399' : '#4c5761'} strokeWidth="2" strokeLinecap="round">
+                          <circle cx="18" cy="5" r="3" />
+                          <circle cx="6" cy="12" r="3" />
+                          <circle cx="18" cy="19" r="3" />
+                          <path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" />
+                        </svg>
+                      </span>
+                    ) : null}
+
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setDeleteMode('single'); setPendingDelete(doc) }}
+                      title={`Delete ${doc.title}`}
+                      className="shrink-0 text-faint opacity-0 transition-opacity duration-150 ease-out hover:text-danger focus-visible:opacity-100 group-hover:opacity-100"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
+                      </svg>
+                    </button>
+                  </div>
+                )
+              })
+            )}
+          </div>
+
+          <div className="mt-auto border-t border-hair p-4">
             {currentUser && documents.length > 0 ? (
               <button
                 type="button"
-                onClick={handleDeleteAllDocuments}
-                className="mt-5 w-full rounded-xl border border-red-500 px-4 py-3 text-sm font-semibold text-red-400 transition hover:border-red-600 hover:bg-red-500 hover:text-white"
+                onClick={() => { setDeleteMode('all'); setPendingDelete({ id: 'all', title: 'all saved documents' } as PlaygroundDocument) }}
+                className="btn-danger btn-sm mb-3.5 w-full"
               >
                 Delete all
               </button>
             ) : null}
-          </aside>
 
-          <section className="min-w-0 rounded-3xl bg-surface p-4 outline -outline-offset-1 outline-white/10">
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
-              <div className="min-w-0 flex-1">
-                <label htmlFor="snippet-title" className="mb-2 block text-base font-semibold text-white font-mono">
-                  Document title
-                </label>
-                <input
-                  id="snippet-title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="block w-full rounded-xl bg-white/5 px-4 py-3 text-sm text-white outline-1 -outline-offset-1 outline-white/10 focus:outline-2 focus:-outline-offset-2 focus:outline-accent"
-                />
-              </div>
-
-              <div className="xl:w-52">
-                <label htmlFor="language" className="mb-2 block text-base font-semibold text-white font-mono">
-                  Language
-                </label>
-                <div className="relative">
-                  <select
-                    id="language"
-                    value={language}
-                    onChange={(e) => handleLanguageChange(e.target.value)}
-                    className="block w-full appearance-none rounded-xl bg-white/5 px-4 py-3 pr-12 text-sm text-white outline-1 -outline-offset-1 outline-white/10 focus:outline-2 focus:-outline-offset-2 focus:outline-accent"
-                  >
-                    {languageOptions.map((option) => (
-                      <option key={option.value} value={option.value} className="bg-surface text-white">
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-white/70">
-                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="size-4">
-                      <path
-                        fillRule="evenodd"
-                        d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </div>
+            <p className="eyebrow-tight">Shortcuts</p>
+            <div className="mt-2.5 flex flex-col gap-[7px]">
+              {[['Save', '⌘ S'], ['Run', '⌘ ↵'], ['New', '⌘ N']].map(([action, keys]) => (
+                <div key={action} className="flex items-center justify-between">
+                  <span className="font-mono text-[11.5px] text-meta">{action}</span>
+                  <span className="rounded-[5px] border border-input px-1.5 py-0.5 font-mono text-[10.5px] text-dim">
+                    {keys}
+                  </span>
                 </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleSave}
-                className="inline-flex shrink-0 items-center justify-center gap-x-2 rounded-md border border-accent/10 bg-accent px-4 py-3 text-sm font-semibold text-black shadow-none transition-shadow duration-300 hover:shadow-[0_0_22px_color-mix(in_srgb,var(--color-accent)_55%,transparent)]"
-              >
-                <CloudArrowUpIcon aria-hidden="true" className="size-5" />
-                Save
-              </button>
-
-              <button
-                type="button"
-                onClick={handleNewDocument}
-                className="rounded-md border border-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:border-accent hover:text-accent"
-              >
-                + New
-              </button>
+              ))}
             </div>
-
-            <div className="mt-4 rounded-2xl border border-white/10 bg-[#1e1e1e] p-3">
-              <div className="min-h-28rem w-full resize-none rounded-xl bg-transparent p-4 font-mono text-sm leading-7 text-white outline-none">
-                <Suspense
-                  fallback={
-                    <div className="flex h-[70vh] items-center justify-center rounded-xl border border-white/10 bg-black/30 text-sm text-gray-400">
-                      Loading editor...
-                    </div>
-                  }
-                >
-                  <Editor
-                    height="70vh"
-                    theme="vs-dark"
-                    language={language}
-                    value={code}
-                    onChange={(value) => setCode(value ?? '')}
-                    options={{ minimap: { enabled: false }, fontSize: 14, automaticLayout: true }}
-                  />
-                </Suspense>
-              </div>
-            </div>
-
-            <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1fr)_18rem]">
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-3.5">
-                <p className="text-base font-semibold text-white">Storage rules</p>
-                <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm/6 text-muted marker:text-accent">
-                  <li>Saved snippets stay attached to your account.</li>
-                  <li>You need to be signed in to save or share a snippet.</li>
-                  <li>Shared links reopen the last saved version of a shared snippet.</li>
-                </ul>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-3.5">
-                <p className="text-base font-semibold text-white">Status</p>
-                <p className="mt-3 text-sm/6 text-muted">{notice || 'No recent activity.'}</p>
-              </div>
-            </div>
-          </section>
+          </div>
         </div>
-      </main>
+  )
 
-      <AppFooter />
-      <ConfirmationMessage open={showSaveConfirmation} message="Document saved successfully." />
-      <AlertDialogBox
-        open={Boolean(documentPendingDelete)}
-        onClose={closeDeleteDialog}
-        onConfirm={confirmDeleteDocument}
+  const savedIndicator = isDirty ? 'Unsaved changes' : 'All changes saved'
+
+  return (
+    <div className="flex min-h-screen flex-col bg-canvas lg:h-screen">
+      <AppHeader
+        onNavigate={onNavigate}
+        currentPath="/playground"
+        currentUser={currentUser}
+        onLogout={onLogout}
+        variant="app"
+      />
+
+      {/* ── Toolbar ────────────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-hair px-6 py-3.5">
+        <div className="flex items-baseline gap-3.5">
+          <button
+            type="button"
+            onClick={() => setRailOpen(true)}
+            className="btn-secondary btn-sm self-center lg:hidden"
+          >
+            Documents
+          </button>
+          <h1 className="m-0 text-[15px] font-semibold tracking-[-0.02em] text-strong">
+            Code Playground
+          </h1>
+          <p className="hidden font-mono text-[11.5px] text-label sm:block">
+            Create, save, and share code snippets
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="mr-1.5 hidden items-center gap-[7px] font-mono text-[12px] text-meta sm:flex">
+            <span className={`size-[5px] rounded-full ${isDirty ? 'bg-faint' : 'bg-accent'}`} />
+            {savedIndicator}
+          </span>
+          <button type="button" onClick={handleShare} className="btn-secondary btn-sm">Share</button>
+          <button type="button" onClick={handleNewDocument} className="btn-secondary btn-sm">+ New</button>
+          <button type="button" onClick={handleSave} className="btn-primary btn-sm">Save</button>
+        </div>
+      </div>
+
+      {error ? (
+        <p role="alert" className="border-b border-danger/30 bg-danger/[0.08] px-6 py-2.5 text-[13px] text-[#e2a5a1]">
+          {error}
+        </p>
+      ) : null}
+
+      {/* ── App frame ──────────────────────────────────────────────────────── */}
+      {/* ── App frame ────────────────────────────────────────────────────────
+          xl: rail | editor | inspector.
+          lg: rail | (editor above inspector).
+          below lg: editor above inspector, with the rail behind a toggle.
+      ──────────────────────────────────────────────────────────────────────── */}
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        <aside className="hidden w-[264px] shrink-0 border-r border-hair lg:flex">
+          {renderRail()}
+        </aside>
+
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col xl:flex-row">
+        {/* Center — tab strip + editor */}
+        <section className="flex min-h-[60vh] min-w-0 flex-col overflow-hidden lg:min-h-0 lg:flex-1">
+          <div className="flex min-w-0 items-stretch overflow-hidden border-b border-hair bg-white/[0.012]">
+            <div className="flex min-w-0 overflow-x-auto">
+              {openTabs.length === 0 ? (
+                <div className="flex items-center gap-2.5 border-r border-hair bg-panel px-4 py-[11px]">
+                  <span className="size-1.5 rounded-full bg-accent" />
+                  <span className="font-mono text-[12.5px] text-[#e3e9ed]">{title}</span>
+                </div>
+              ) : (
+                openTabs.map((doc) => {
+                  const isActive = doc.id === activeDocumentId
+                  return (
+                    <button
+                      key={doc.id}
+                      type="button"
+                      onClick={() => openDocument(doc)}
+                      className={`flex shrink-0 items-center gap-2.5 border-r border-hair px-4 py-[11px] ${
+                        isActive ? 'bg-panel' : ''
+                      }`}
+                    >
+                      {isActive ? <span className="size-1.5 rounded-full bg-accent" /> : null}
+                      <span className={`font-mono text-[12.5px] ${isActive ? 'text-[#e3e9ed]' : 'text-meta'}`}>
+                        {doc.title}
+                      </span>
+                      <span
+                        onClick={(e) => closeTab(e, doc.id)}
+                        className={`text-[13px] leading-none ${isActive ? 'text-faint' : 'text-[#3a444d]'} hover:text-bright`}
+                      >
+                        ×
+                      </span>
+                    </button>
+                  )
+                })
+              )}
+            </div>
+
+            <div className="ml-auto hidden shrink-0 items-center gap-2.5 whitespace-nowrap px-4 md:flex">
+              <span className="font-mono text-[11.5px] text-label">
+                {LANGUAGE_LABELS[language] ?? language}
+              </span>
+              <span className="text-[#3a444d]">·</span>
+              <span className="font-mono text-[11.5px] text-label">UTF-8</span>
+              <span className="text-[#3a444d]">·</span>
+              <span className="font-mono text-[11.5px] text-label">
+                Ln {cursor.line}, Col {cursor.column}
+              </span>
+            </div>
+          </div>
+
+          {/* Monaco needs a definite height at mount; `flex-1` alone resolves too
+              late for it and the editor comes up 0px tall. Absolute fill inside
+              a positioned host gives it one immediately. */}
+          <div className="relative min-h-0 flex-1 bg-panel">
+            <div className="absolute inset-0">
+              <Suspense
+                fallback={
+                  <div className="flex h-full items-center justify-center font-mono text-[12px] text-label">
+                    Loading editor…
+                  </div>
+                }
+              >
+                <Editor
+                  height="100%"
+                  theme={PLAYGROUND_THEME}
+                  language={language}
+                  value={code}
+                  beforeMount={(monaco: Monaco) => defineEditorTheme(monaco)}
+                  onMount={(editor) => {
+                    editor.onDidChangeCursorPosition((e) =>
+                      setCursor({ line: e.position.lineNumber, column: e.position.column }),
+                    )
+
+                    // `automaticLayout` does not always catch the first frame
+                    // inside a flex column, and the editor comes up 5px tall.
+                    // Measure once the host has been laid out.
+                    requestAnimationFrame(() => editor.layout())
+
+                    const host = editor.getContainerDomNode().parentElement
+                    if (!host) return
+
+                    const observer = new ResizeObserver(() => editor.layout())
+                    observer.observe(host)
+                    editor.onDidDispose(() => observer.disconnect())
+                  }}
+                  onChange={(value) => { setCode(value ?? ''); setIsDirty(true) }}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 13,
+                    lineHeight: 26,
+                    fontFamily: '"Geist Mono", ui-monospace, monospace',
+                    automaticLayout: true,
+                    padding: { top: 18, bottom: 18 },
+                    scrollBeyondLastLine: false,
+                    renderLineHighlight: 'none',
+                    lineNumbersMinChars: 3,
+                    overviewRulerLanes: 0,
+                  }}
+                />
+              </Suspense>
+            </div>
+          </div>
+        </section>
+        {/* Right inspector */}
+        <aside className="flex min-h-0 flex-col gap-5 overflow-y-auto border-t border-hair px-[18px] pb-6 pt-[18px] xl:w-[300px] xl:shrink-0 xl:border-t-0 xl:border-l">
+          <div>
+            <p className="eyebrow-tight">Document</p>
+            <div className="mt-2.5 flex flex-col gap-2">
+              <label htmlFor="doc-title" className="sr-only">Document title</label>
+              <input
+                id="doc-title"
+                value={title}
+                onChange={(e) => { setTitle(e.target.value); setIsDirty(true) }}
+                className="field rounded-lg px-3 py-[9px] text-[13px]"
+              />
+              <label htmlFor="doc-language" className="sr-only">Language</label>
+              <select
+                id="doc-language"
+                value={language}
+                onChange={(e) => handleLanguageChange(e.target.value)}
+                className="field cursor-pointer appearance-none rounded-lg bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 20 20%22 fill=%22%235b6570%22><path d=%22M5.2 7.5 10 12.3l4.8-4.8z%22/></svg>')] bg-[length:14px_14px] bg-[right_12px_center] bg-no-repeat px-3 py-[9px] pr-9 text-[13px]"
+              >
+                {languageOptions.map((option) => (
+                  <option key={option.value} value={option.value} className="bg-raised text-bright">
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <p className="eyebrow-tight">Sharing</p>
+            <div
+              className={`mt-2.5 rounded-[10px] p-3.5 ${
+                shareUrl ? 'border border-accent/25 bg-accent/[0.05]' : 'border border-hair'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[13px] font-semibold text-strong">
+                  Link sharing {shareUrl ? 'on' : 'off'}
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={Boolean(shareUrl)}
+                  aria-label="Link sharing"
+                  onClick={() => (shareUrl ? handleStopSharing() : handleShare())}
+                  className={`flex h-[18px] w-8 items-center rounded-full p-0.5 transition-colors duration-150 ease-out ${
+                    shareUrl ? 'justify-end bg-accent' : 'justify-start bg-white/[0.14]'
+                  }`}
+                >
+                  <span className={`size-3.5 rounded-full ${shareUrl ? 'bg-[#04170f]' : 'bg-[#5b6570]'}`} />
+                </button>
+              </div>
+
+              <p className="mt-2 text-[12.5px] leading-[1.6] text-dim">
+                {shareUrl
+                  ? 'Anyone with the link can view the last saved version.'
+                  : 'Turn sharing on to create a read-only link for this snippet.'}
+              </p>
+
+              {shareUrl ? (
+                <div className="mt-2.5 flex items-center gap-2 rounded-lg border border-input px-2.5 py-2">
+                  <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-dim">{shareUrl}</span>
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText(shareUrl)}
+                    className="shrink-0 font-mono text-[11px] font-medium text-accent"
+                  >
+                    Copy
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div>
+            <p className="eyebrow-tight">Activity</p>
+            <div className="mt-2.5 flex flex-col gap-[9px]">
+              {activity.length === 0 ? (
+                <p className="text-[12.5px] leading-[1.5] text-faint">No activity yet.</p>
+              ) : (
+                activity.map((entry, i) => (
+                  <div key={`${entry.at}-${i}`} className="flex gap-2.5">
+                    <span className="shrink-0 whitespace-nowrap font-mono text-[11px] text-faint">
+                      {entry.at}
+                    </span>
+                    <span className="text-[12.5px] leading-[1.5] text-dim">{entry.message}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="mt-auto border-t border-hair pt-3.5">
+            <p className="m-0 text-[12.5px] leading-[1.7] text-meta">
+              Saved snippets stay attached to your account. Shared links reopen the last saved
+              version.
+            </p>
+          </div>
+        </aside>
+        </div>
+      </div>
+
+      {/* The rail as a drawer below `lg`. */}
+      <Dialog open={railOpen} onClose={setRailOpen} className="lg:hidden">
+        <div className="fixed inset-0 z-[250] bg-black/50" />
+        <DialogPanel className="fixed inset-y-0 left-0 z-[250] flex w-[280px] flex-col border-r border-hair bg-canvas">
+          <div className="flex items-center justify-between border-b border-hair px-4 py-3">
+            <span className="eyebrow-tight">Documents</span>
+            <button type="button" onClick={() => setRailOpen(false)} className="-m-2 p-2 text-muted hover:text-bright">
+              <span className="sr-only">Close</span>
+              <XMarkIcon className="size-5" aria-hidden="true" />
+            </button>
+          </div>
+          {renderRail()}
+        </DialogPanel>
+      </Dialog>
+
+
+      <ShareDialog
+        open={shareDialogOpen}
+        onClose={() => setShareDialogOpen(false)}
+        filename={title}
+        shareUrl={shareUrl}
+        onStopSharing={handleStopSharing}
+      />
+
+      <ConfirmDialog
+        open={Boolean(pendingDelete)}
+        onClose={() => { setPendingDelete(null); setDeleteMode(null) }}
+        onConfirm={confirmDelete}
         title={deleteMode === 'all' ? 'Delete all documents?' : 'Delete document?'}
         description={
           deleteMode === 'all'
             ? 'All saved documents will be removed from your account. This cannot be undone.'
-            : documentPendingDelete
-              ? `"${documentPendingDelete.title}" will be removed from your saved documents. This can't be undone.`
+            : pendingDelete
+              ? `"${pendingDelete.title}" will be removed from your saved documents. This cannot be undone.`
               : ''
         }
         confirmLabel={deleteMode === 'all' ? 'Delete all' : 'Delete'}
-        cancelLabel="Cancel"
+        destructive
       />
-      <ShareDocumentModal open={shareModalOpen} onClose={() => setShareModalOpen(false)} shareUrl={shareUrl} />
     </div>
   )
 }

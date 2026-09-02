@@ -249,6 +249,24 @@ export default function HomePage({ onNavigate, currentUser, onLogout, currentPat
               }`}
             >
               {newsletterMessage || 'Enter your email to receive occasional updates.'}
+              {/* A settled form is otherwise a dead end for anyone who
+                  mistyped their address. */}
+              {isSubscribed ? (
+                <>
+                  {' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSubscribed(false)
+                      setNewsletterMessage('')
+                      setNewsletterEmail('')
+                    }}
+                    className="text-muted underline underline-offset-2 transition-colors duration-150 ease-out hover:text-bright"
+                  >
+                    Use a different email
+                  </button>
+                </>
+              ) : null}
             </p>
           </form>
         </div>

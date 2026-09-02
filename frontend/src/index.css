@@ -263,6 +263,22 @@
   }
   .field-mono { font-family: var(--font-mono); }
 
+  /* ── Tab strip ──────────────────────────────────────────────────────────
+     The strip scrolls once the open files outgrow it. A hairline scrollbar
+     signals that without stealing height from the 42px tab row.
+  ──────────────────────────────────────────────────────────────────────── */
+  .tab-strip {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+  }
+  .tab-strip::-webkit-scrollbar { height: 3px; }
+  .tab-strip::-webkit-scrollbar-track { background: transparent; }
+  .tab-strip::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+  }
+  .tab-strip:hover::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); }
+
   /* ── Hover lift on cards and list rows ──────────────────────────────────
      Border only — no translate, no scale.
   ──────────────────────────────────────────────────────────────────────── */

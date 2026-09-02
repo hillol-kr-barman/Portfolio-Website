@@ -71,6 +71,7 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
   const [deleteMode, setDeleteMode] = useState<'single' | 'all' | null>(null)
 
   const [railOpen, setRailOpen] = useState(false)
+  const tabStripRef = useRef<HTMLDivElement | null>(null)
   const [sharedDocument, setSharedDocument] = useState<PlaygroundDocument | null>(null)
   const [isResolvingShare, setIsResolvingShare] = useState(false)
 
@@ -317,8 +318,6 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
     ...(activeDocumentId === null ? [{ id: DRAFT_TAB_ID, title, isDraft: true }] : []),
   ]
 
-  const activeTabId = activeDocumentId ?? DRAFT_TAB_ID
-
   // ── Shared-link recipient view ────────────────────────────────────────────
   if (shareToken) {
     if (isResolvingShare) {
@@ -356,8 +355,18 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
     }
   }
 
+  const activeTabId = activeDocumentId ?? DRAFT_TAB_ID
+
+  useEffect(() => {
+    const strip = tabStripRef.current
+    if (!strip) return
+
+    const tab = strip.querySelector<HTMLElement>(`[data-tab-id="${CSS.escape(activeTabId)}"]`)
+    tab?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [activeTabId, openTabIds.length])
+
   const renderRail = () => (
-        <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
           <div className="border-b border-hair p-4">
             <div className="flex items-center gap-2 rounded-lg border border-white/[0.09] px-[11px] py-2">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="shrink-0 text-label">
@@ -535,7 +544,7 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
           below lg: editor above inspector, with the rail behind a toggle.
       ──────────────────────────────────────────────────────────────────────── */}
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <aside className="hidden w-[264px] shrink-0 border-r border-hair lg:flex">
+        <aside className="hidden w-[264px] shrink-0 overflow-hidden border-r border-hair lg:flex">
           {renderRail()}
         </aside>
 
@@ -543,13 +552,15 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
         {/* Center — tab strip + editor */}
         <section className="flex min-h-[60vh] min-w-0 flex-col overflow-hidden lg:min-h-0 lg:flex-1">
           <div className="flex min-w-0 items-stretch overflow-hidden border-b border-hair bg-white/[0.012]">
-            <div className="flex min-w-0 overflow-x-auto">
+            <div ref={tabStripRef} className="tab-strip flex min-w-0 flex-1 overflow-x-auto">
               {openTabs.map((tab) => {
                 const isActive = tab.id === activeTabId
                 return (
                   <div
                     key={tab.id}
-                    className={`flex shrink-0 items-center gap-2.5 border-r border-hair px-4 py-[11px] ${
+                    data-tab-id={tab.id}
+                    title={tab.title || NEW_DOCUMENT_TITLE}
+                    className={`flex max-w-[200px] shrink-0 items-center gap-2.5 border-r border-hair px-4 py-[11px] ${
                       isActive ? 'bg-panel' : ''
                     }`}
                   >
@@ -560,21 +571,27 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
                         const doc = documents.find((item) => item.id === tab.id)
                         if (doc) openDocument(doc)
                       }}
-                      className="flex items-center gap-2.5"
+                      className="flex min-w-0 items-center gap-2.5"
                     >
-                      {isActive ? <span className="size-1.5 rounded-full bg-accent" /> : null}
-                      <span className={`font-mono text-[12.5px] ${isActive ? 'text-[#e3e9ed]' : 'text-meta'}`}>
+                      {isActive ? (
+                        <span className="size-1.5 shrink-0 rounded-full bg-accent" />
+                      ) : null}
+                      <span
+                        className={`truncate font-mono text-[12.5px] ${
+                          isActive ? 'text-[#e3e9ed]' : 'text-meta'
+                        }`}
+                      >
                         {tab.title || NEW_DOCUMENT_TITLE}
                       </span>
                       {tab.isDraft ? (
-                        <span className="font-mono text-[10px] text-label">draft</span>
+                        <span className="shrink-0 font-mono text-[10px] text-label">draft</span>
                       ) : null}
                     </button>
                     <button
                       type="button"
                       onClick={(e) => closeTab(e, tab.id)}
                       aria-label={`Close ${tab.title}`}
-                      className={`text-[13px] leading-none ${
+                      className={`shrink-0 text-[13px] leading-none ${
                         isActive ? 'text-faint' : 'text-[#3a444d]'
                       } transition-colors duration-150 ease-out hover:text-bright`}
                     >
@@ -585,7 +602,9 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
               })}
             </div>
 
-            <div className="ml-auto hidden shrink-0 items-center gap-2.5 whitespace-nowrap px-4 md:flex">
+            {/* Opaque and bordered so tabs scroll away cleanly behind it
+                rather than appearing to run underneath. */}
+            <div className="hidden shrink-0 items-center gap-2.5 whitespace-nowrap border-l border-hair bg-canvas px-4 md:flex">
               <span className="font-mono text-[11.5px] text-label">
                 {LANGUAGE_LABELS[language] ?? language}
               </span>
@@ -660,6 +679,7 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
               <input
                 id="doc-title"
                 value={title}
+                maxLength={60}
                 onChange={(e) => { setTitle(e.target.value); setIsDirty(true) }}
                 className="field rounded-lg px-3 py-[9px] text-[13px]"
               />

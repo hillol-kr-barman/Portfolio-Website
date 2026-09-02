@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/newsletter/unsubscribe",
+      "destination": "https://resume-project-qh2u.onrender.com/newsletter/unsubscribe"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

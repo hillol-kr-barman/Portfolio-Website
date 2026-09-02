@@ -39,6 +39,15 @@ interface ActivityEntry {
 
 const NEW_DOCUMENT_TITLE = 'Untitled snippet'
 
+/** Stand-in id for the unsaved snippet, which has no database row yet. */
+const DRAFT_TAB_ID = '__draft__'
+
+interface EditorTab {
+  id: string
+  title: string
+  isDraft: boolean
+}
+
 function shareUrlFor(token: string) {
   return `${window.location.origin}/playground?share=${token}`
 }
@@ -244,6 +253,16 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
 
   const closeTab = (event: React.MouseEvent, id: string) => {
     event.stopPropagation()
+
+    // The draft is not in `documents`, so closing it means falling back to the
+    // last open document rather than removing a tab id.
+    if (id === DRAFT_TAB_ID) {
+      const last = documents.find((doc) => doc.id === openTabIds[openTabIds.length - 1])
+      if (last) openDocument(last)
+      else handleNewDocument()
+      return
+    }
+
     const remaining = openTabIds.filter((tabId) => tabId !== id)
     setOpenTabIds(remaining)
 
@@ -288,9 +307,17 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
     doc.title.toLowerCase().includes(search.trim().toLowerCase()),
   )
 
-  const openTabs = openTabIds
-    .map((id) => documents.find((doc) => doc.id === id))
-    .filter((doc): doc is PlaygroundDocument => doc !== undefined)
+  const openTabs: EditorTab[] = [
+    ...openTabIds
+      .map((id) => documents.find((doc) => doc.id === id))
+      .filter((doc): doc is PlaygroundDocument => doc !== undefined)
+      .map((doc) => ({ id: doc.id, title: doc.title, isDraft: false })),
+    // An unsaved snippet has no id yet, so it gets its own tab alongside the
+    // saved ones and stays there until it is saved or closed.
+    ...(activeDocumentId === null ? [{ id: DRAFT_TAB_ID, title, isDraft: true }] : []),
+  ]
+
+  const activeTabId = activeDocumentId ?? DRAFT_TAB_ID
 
   // ── Shared-link recipient view ────────────────────────────────────────────
   if (shareToken) {
@@ -502,7 +529,6 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
         </p>
       ) : null}
 
-      {/* ── App frame ──────────────────────────────────────────────────────── */}
       {/* ── App frame ────────────────────────────────────────────────────────
           xl: rail | editor | inspector.
           lg: rail | (editor above inspector).
@@ -518,37 +544,45 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
         <section className="flex min-h-[60vh] min-w-0 flex-col overflow-hidden lg:min-h-0 lg:flex-1">
           <div className="flex min-w-0 items-stretch overflow-hidden border-b border-hair bg-white/[0.012]">
             <div className="flex min-w-0 overflow-x-auto">
-              {openTabs.length === 0 ? (
-                <div className="flex items-center gap-2.5 border-r border-hair bg-panel px-4 py-[11px]">
-                  <span className="size-1.5 rounded-full bg-accent" />
-                  <span className="font-mono text-[12.5px] text-[#e3e9ed]">{title}</span>
-                </div>
-              ) : (
-                openTabs.map((doc) => {
-                  const isActive = doc.id === activeDocumentId
-                  return (
+              {openTabs.map((tab) => {
+                const isActive = tab.id === activeTabId
+                return (
+                  <div
+                    key={tab.id}
+                    className={`flex shrink-0 items-center gap-2.5 border-r border-hair px-4 py-[11px] ${
+                      isActive ? 'bg-panel' : ''
+                    }`}
+                  >
                     <button
-                      key={doc.id}
                       type="button"
-                      onClick={() => openDocument(doc)}
-                      className={`flex shrink-0 items-center gap-2.5 border-r border-hair px-4 py-[11px] ${
-                        isActive ? 'bg-panel' : ''
-                      }`}
+                      onClick={() => {
+                        if (tab.isDraft) return
+                        const doc = documents.find((item) => item.id === tab.id)
+                        if (doc) openDocument(doc)
+                      }}
+                      className="flex items-center gap-2.5"
                     >
                       {isActive ? <span className="size-1.5 rounded-full bg-accent" /> : null}
                       <span className={`font-mono text-[12.5px] ${isActive ? 'text-[#e3e9ed]' : 'text-meta'}`}>
-                        {doc.title}
+                        {tab.title || NEW_DOCUMENT_TITLE}
                       </span>
-                      <span
-                        onClick={(e) => closeTab(e, doc.id)}
-                        className={`text-[13px] leading-none ${isActive ? 'text-faint' : 'text-[#3a444d]'} hover:text-bright`}
-                      >
-                        ×
-                      </span>
+                      {tab.isDraft ? (
+                        <span className="font-mono text-[10px] text-label">draft</span>
+                      ) : null}
                     </button>
-                  )
-                })
-              )}
+                    <button
+                      type="button"
+                      onClick={(e) => closeTab(e, tab.id)}
+                      aria-label={`Close ${tab.title}`}
+                      className={`text-[13px] leading-none ${
+                        isActive ? 'text-faint' : 'text-[#3a444d]'
+                      } transition-colors duration-150 ease-out hover:text-bright`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )
+              })}
             </div>
 
             <div className="ml-auto hidden shrink-0 items-center gap-2.5 whitespace-nowrap px-4 md:flex">

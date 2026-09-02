@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Dialog, DialogPanel } from '@headlessui/react'
+import { Dialog, DialogPanel, Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react'
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
 import type { AuthUser } from '@hillolbarman/ui'
 import Wordmark from './Wordmark'
@@ -11,10 +11,10 @@ interface AppHeaderProps {
   onNavigate: (to: string) => void
   onLogout?: () => void
   /**
-   * 'site'      — 64px, 40px gutter, canvas pages.
-   * 'app'       — 56px, 24px gutter, the playground frame; shows the signed-in
-   *               identity (email + initials avatar) on the right.
-   * 'read-only' — site frame with a mono marker instead of nav actions.
+   * 'site'      — 64px, 40px gutter, canvas pages. Sticks to the top on scroll.
+   * 'app'       — 56px, 24px gutter, the playground frame, which is already a
+   *               fixed viewport frame and so does not stick.
+   * 'read-only' — site frame with a mono marker in place of the account slot.
    */
   variant?: 'site' | 'app' | 'read-only'
   /** Mono marker rendered on the right of the 'read-only' variant. */
@@ -44,68 +44,100 @@ export default function AppHeader({
     onNavigate(to)
   }
 
-  const navLinks = (
-    <>
-      {navigation.map((item) => (
-        <a
-          key={item.name}
-          href={item.href}
-          onClick={(e) => go(e, item.href)}
-          className={`font-[450] text-[13.5px] transition-colors duration-150 ease-out hover:text-bright ${
-            currentPath === item.href ? 'text-bright' : 'text-muted'
-          }`}
-        >
-          {item.name}
-        </a>
-      ))}
-    </>
-  )
+  const loginPath = `/login${
+    currentPath && currentPath !== '/' ? `?redirect=${encodeURIComponent(currentPath)}` : ''
+  }`
 
   return (
     <header
-      className={`flex items-center border-b border-hair ${
-        isApp ? 'h-14 justify-between px-6' : 'h-16 px-5 sm:px-10'
-      } ${variant === 'read-only' ? 'justify-between' : ''}`}
+      className={`z-50 flex items-center border-b border-hair ${
+        isApp
+          ? 'h-14 px-6'
+          : 'sticky top-0 h-16 bg-canvas/85 px-5 backdrop-blur-md sm:px-10'
+      }`}
     >
       <Wordmark onNavigate={onNavigate} compact={isApp} />
 
-      {/* The app and shared-snippet frames centre the nav between the wordmark
-          and the right-hand slot; content pages push it to the right gutter. */}
+      {/* Nav is right-aligned on every variant, with the account slot after it,
+          so the header reads the same on a content page and in the playground. */}
       <nav
-        className={`hidden items-center lg:flex ${isApp ? 'gap-6' : 'gap-[26px]'} ${
-          variant === 'site' ? 'ml-auto' : ''
-        }`}
+        className={`ml-auto hidden items-center lg:flex ${isApp ? 'gap-6' : 'gap-[26px]'}`}
       >
-        {navLinks}
+        {navigation.map((item) => (
+          <a
+            key={item.name}
+            href={item.href}
+            onClick={(e) => go(e, item.href)}
+            className={`font-[450] text-[13.5px] transition-colors duration-150 ease-out hover:text-bright ${
+              currentPath === item.href ? 'text-bright' : 'text-muted'
+            }`}
+          >
+            {item.name}
+          </a>
+        ))}
       </nav>
 
-      <div className={`flex items-center gap-3 ${variant === 'site' ? 'ml-auto lg:ml-0' : ''}`}>
+      <div className={`flex items-center gap-3 lg:ml-7 ${variant === 'read-only' ? 'ml-auto' : 'ml-auto lg:ml-7'}`}>
         {variant === 'read-only' && marker ? (
           <span className="font-mono text-[11.5px] text-meta">{marker}</span>
         ) : null}
 
-        {isApp && currentUser ? (
-          <div className="hidden items-center gap-3 sm:flex">
-            <span className="font-mono text-[12px] text-muted">{currentUser.email}</span>
-            <button
-              type="button"
-              onClick={onLogout}
-              title="Sign out"
-              className="flex size-[26px] items-center justify-center rounded-full border border-accent/30 bg-accent/[0.14] font-mono text-[11px] font-semibold text-accent transition-colors duration-150 ease-out hover:border-accent/60"
+        {variant !== 'read-only' && currentUser ? (
+          <Menu as="div" className="relative hidden sm:block">
+            <MenuButton className="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-1 transition-colors duration-150 ease-out">
+              <span className="hidden font-mono text-[12px] text-muted xl:block">
+                {currentUser.email}
+              </span>
+              <span className="flex size-[26px] items-center justify-center rounded-full border border-accent/30 bg-accent/[0.14] font-mono text-[11px] font-semibold text-accent">
+                {initialsOf(currentUser)}
+              </span>
+            </MenuButton>
+
+            <MenuItems
+              transition
+              anchor="bottom end"
+              className="z-[100] mt-2 w-56 rounded-xl border border-hair bg-raised p-1.5 shadow-panel transition duration-150 ease-out data-closed:opacity-0"
             >
-              {initialsOf(currentUser)}
-            </button>
-          </div>
+              <div className="border-b border-hair px-2.5 pb-2.5 pt-1.5">
+                <p className="truncate text-[13px] font-semibold text-strong">{currentUser.name}</p>
+                <p className="mt-0.5 truncate font-mono text-[11px] text-label">{currentUser.email}</p>
+              </div>
+
+              <MenuItem>
+                <a
+                  href="/playground"
+                  onClick={(e) => go(e, '/playground')}
+                  className="mt-1.5 block rounded-lg px-2.5 py-2 text-[13px] text-muted transition-colors duration-150 ease-out data-focus:bg-white/5 data-focus:text-bright"
+                >
+                  Code Playground
+                </a>
+              </MenuItem>
+              <MenuItem>
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className="block w-full rounded-lg px-2.5 py-2 text-left text-[13px] text-muted transition-colors duration-150 ease-out data-focus:bg-danger/10 data-focus:text-danger"
+                >
+                  Sign out
+                </button>
+              </MenuItem>
+            </MenuItems>
+          </Menu>
         ) : null}
 
-        {isApp && !currentUser ? (
-          <a
-            href="/login?redirect=/playground"
-            onClick={(e) => go(e, '/login?redirect=/playground')}
-            className="hidden font-[450] text-[13px] text-muted transition-colors duration-150 ease-out hover:text-bright sm:block"
-          >
-            Log in
-          </a>
+        {variant !== 'read-only' && !currentUser ? (
+          <div className="hidden items-center gap-2.5 sm:flex">
+            <a
+              href={loginPath}
+              onClick={(e) => go(e, loginPath)}
+              className="font-[450] text-[13.5px] text-muted transition-colors duration-150 ease-out hover:text-bright"
+            >
+              Log in
+            </a>
+            <a href="/signup" onClick={(e) => go(e, '/signup')} className="btn-primary btn-sm">
+              Sign up
+            </a>
+          </div>
         ) : null}
 
         <button
@@ -159,26 +191,26 @@ export default function AppHeader({
 
           <div className="mt-8">
             {currentUser ? (
-              <div className="flex items-center justify-between gap-3">
-                <span className="min-w-0 truncate font-mono text-[12px] text-muted">
-                  {currentUser.email}
-                </span>
+              <>
+                <p className="truncate text-[14px] font-semibold text-strong">{currentUser.name}</p>
+                <p className="mt-0.5 truncate font-mono text-[11.5px] text-label">{currentUser.email}</p>
                 <button
                   type="button"
                   onClick={() => { setMobileMenuOpen(false); onLogout?.() }}
-                  className="btn-secondary btn-sm"
+                  className="btn-danger btn-sm mt-4 w-full"
                 >
                   Sign out
                 </button>
-              </div>
+              </>
             ) : (
-              <a
-                href="/login"
-                onClick={(e) => go(e, '/login')}
-                className="btn-secondary btn-sm w-full"
-              >
-                Log in
-              </a>
+              <div className="flex flex-col gap-2.5">
+                <a href="/signup" onClick={(e) => go(e, '/signup')} className="btn-primary btn-sm w-full">
+                  Sign up
+                </a>
+                <a href={loginPath} onClick={(e) => go(e, loginPath)} className="btn-secondary btn-sm w-full">
+                  Log in
+                </a>
+              </div>
             )}
           </div>
         </DialogPanel>

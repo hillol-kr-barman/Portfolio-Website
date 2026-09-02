@@ -10,6 +10,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from newsletter_api import router as newsletter_router
+
 try:
     import certifi
 except ImportError:  # pragma: no cover
@@ -327,6 +329,9 @@ def subscribe_to_newsletter(payload: NewsletterSubscribeRequest) -> dict:
         "email": normalized_email,
         "created": created_row is not None,
     }
+
+app.include_router(newsletter_router)
+
 
 @app.get("/")
 def read_root() -> dict[str, str]:

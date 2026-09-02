@@ -7,7 +7,7 @@ from urllib import error, request
 from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Header, HTTPException, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 
 try:
@@ -251,6 +251,14 @@ def send_batch_to_resend(payload: NewsletterSendRequest, subscribers: list[dict]
             "to": [subscriber["email"]],
             "subject": payload.subject,
             "html": render_html_content(payload.html, unsubscribe_url),
+            "headers": {
+                # RFC 8058. Mail clients surface a native "Unsubscribe" button
+                # from these and providers weigh their presence heavily.
+                # One-Click means the provider POSTs the URL directly, so the
+                # endpoint accepts POST as well as GET.
+                "List-Unsubscribe": f"<{unsubscribe_url}>",
+                "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+            },
             **({"reply_to": payload.reply_to} if payload.reply_to else {}),
         }
 
@@ -304,6 +312,19 @@ def send_newsletter(
         raise HTTPException(status_code=400, detail="No active newsletter subscribers found.")
 
     return send_batch_to_resend(payload, subscribers)
+
+
+@router.post("/unsubscribe")
+def unsubscribe_one_click(token: str = Query(..., min_length=1)) -> Response:
+    """RFC 8058 one-click endpoint.
+
+    Mail providers POST here when the reader uses their client's own
+    Unsubscribe button. They read the status code, not the body, and a
+    non-2xx makes the client report the unsubscribe as failed — so an
+    unrecognised token still answers 200 rather than 404.
+    """
+    unsubscribe_by_token(token)
+    return Response(status_code=200)
 
 
 @router.get("/unsubscribe", response_class=HTMLResponse)

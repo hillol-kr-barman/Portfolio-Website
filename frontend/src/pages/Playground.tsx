@@ -7,6 +7,7 @@ import AppHeader from '../components/AppHeader'
 import SharedSnippetView from '../components/SharedSnippetView'
 import { ConfirmDialog, ShareDialog, UnsavedChangesDialog } from '../components/Dialogs'
 import { PLAYGROUND_THEME, defineEditorTheme } from '../components/EditorTheme'
+import { SaveIcon, ShareIcon } from '../components/Icons'
 import {
   LANGUAGE_BADGES,
   LANGUAGE_LABELS,
@@ -495,12 +496,9 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
 
                     {doc.isShared ? (
                       <span title="Shared" className="shrink-0">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={isActive ? '#34d399' : '#4c5761'} strokeWidth="2" strokeLinecap="round">
-                          <circle cx="18" cy="5" r="3" />
-                          <circle cx="6" cy="12" r="3" />
-                          <circle cx="18" cy="19" r="3" />
-                          <path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" />
-                        </svg>
+                        <ShareIcon
+                          className={`size-[13px] ${isActive ? 'text-accent' : 'text-faint'}`}
+                        />
                       </span>
                     ) : null}
 
@@ -581,7 +579,10 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
             <span className={`size-[5px] rounded-full ${isDirty ? 'bg-faint' : 'bg-accent'}`} />
             {savedIndicator}
           </span>
-          <button type="button" onClick={handleShare} className="btn-secondary btn-sm">Share</button>
+          <button type="button" onClick={handleShare} className="btn-secondary btn-sm">
+            <ShareIcon className="size-[13px]" />
+            Share
+          </button>
           <button
             type="button"
             onClick={() => guardUnsaved('creating a new snippet', handleNewDocument)}
@@ -589,7 +590,10 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
           >
             + New
           </button>
-          <button type="button" onClick={handleSave} className="btn-primary btn-sm">Save</button>
+          <button type="button" onClick={handleSave} className="btn-primary btn-sm">
+            <SaveIcon className="size-[13px]" />
+            Save
+          </button>
         </div>
       </div>
 

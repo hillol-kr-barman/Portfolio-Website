@@ -4,6 +4,13 @@ import about800Webp from '../assets/about-800.webp'
 import about1200Webp from '../assets/about-1200.webp'
 import PageShell from '../components/PageShell'
 import SectionRule from '../components/SectionRule'
+import {
+  DownloadIcon,
+  FileIcon,
+  GitHubIcon,
+  LinkedInIcon,
+  MailIcon,
+} from '../components/Icons'
 
 const skills = [
   'TypeScript', 'JavaScript', 'Python', 'SQL',
@@ -72,60 +79,6 @@ const timeline = [
   { period: 'Mar 2025 – Present', event: 'Console Operator at NPG Urbanista Convenience Store, Albion Park NSW', current: true },
 ]
 
-/**
- * A 15px stroke/fill icon sits to the left of every contact action so the
- * button reads as a verb, not just a label.
- */
-const iconProps = {
-  width: 15,
-  height: 15,
-  viewBox: '0 0 24 24',
-  'aria-hidden': true,
-  className: 'shrink-0',
-} as const
-
-const strokeProps = {
-  fill: 'none',
-  stroke: 'currentColor',
-  strokeWidth: 2,
-  strokeLinecap: 'round',
-  strokeLinejoin: 'round',
-} as const
-
-const MailIcon = () => (
-  <svg {...iconProps} {...strokeProps}>
-    <rect width="20" height="16" x="2" y="4" rx="2" />
-    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-  </svg>
-)
-
-const DownloadIcon = () => (
-  <svg {...iconProps} {...strokeProps}>
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-    <polyline points="7 10 12 15 17 10" />
-    <line x1="12" y1="15" x2="12" y2="3" />
-  </svg>
-)
-
-const GitHubIcon = () => (
-  <svg {...iconProps} fill="currentColor">
-    <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-  </svg>
-)
-
-const LinkedInIcon = () => (
-  <svg {...iconProps} fill="currentColor">
-    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.85-3.037-1.853 0-2.136 1.447-2.136 2.942v5.664H9.354V9h3.414v1.561h.049c.476-.9 1.637-1.85 3.37-1.85 3.602 0 4.267 2.371 4.267 5.455v6.286h-.007ZM5.337 7.433a2.062 2.062 0 1 1 0-4.124 2.062 2.062 0 0 1 0 4.124ZM7.114 20.452H3.558V9h3.556v11.452ZM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003Z" />
-  </svg>
-)
-
-const FileIcon = () => (
-  <svg {...iconProps} {...strokeProps}>
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-    <polyline points="14 2 14 8 20 8" />
-  </svg>
-)
-
 const contactLinks = [
   { label: 'Email', href: 'mailto:hillolbarman@yahoo.com', Icon: MailIcon },
   { label: 'GitHub', href: 'https://github.com/hillol-kr-barman', external: true, Icon: GitHubIcon },
@@ -175,7 +128,7 @@ export default function AboutMe({ onNavigate, currentUser, onLogout, currentPath
                 {...(link.download ? { download: true } : {})}
                 className="row-hover flex items-center gap-2 rounded-[7px] border border-input px-3 py-1.5 font-mono text-[12px] text-[#9aa5ad]"
               >
-                <link.Icon />
+                <link.Icon className="size-[15px]" />
                 {link.label}
               </a>
             ))}
@@ -305,11 +258,11 @@ export default function AboutMe({ onNavigate, currentUser, onLogout, currentPath
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <a href="mailto:hillolbarman@yahoo.com" className="btn-primary">
-            <MailIcon />
+            <MailIcon className="size-[15px]" />
             Send email
           </a>
           <a href="/HillolBarman_Resume.pdf" download className="btn-secondary">
-            <DownloadIcon />
+            <DownloadIcon className="size-[15px]" />
             Download CV
           </a>
           <a
@@ -318,7 +271,7 @@ export default function AboutMe({ onNavigate, currentUser, onLogout, currentPath
             rel="noreferrer"
             className="btn-secondary"
           >
-            <GitHubIcon />
+            <GitHubIcon className="size-[15px]" />
             GitHub
           </a>
           <a
@@ -327,7 +280,7 @@ export default function AboutMe({ onNavigate, currentUser, onLogout, currentPath
             rel="noreferrer"
             className="btn-secondary"
           >
-            <LinkedInIcon />
+            <LinkedInIcon className="size-[15px]" />
             LinkedIn
           </a>
         </div>

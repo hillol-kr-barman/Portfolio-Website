@@ -55,11 +55,15 @@ export function Field({
   id,
   label,
   trailing,
+  required = false,
   children,
 }: {
   id: string
   label: string
   trailing?: ReactNode
+  /** Marks the label with an accent asterisk. The input keeps its own
+      `required` attribute — this is the visual half of the same fact. */
+  required?: boolean
   children: ReactNode
 }) {
   return (
@@ -70,6 +74,11 @@ export function Field({
           className="font-mono text-[11.5px] font-medium uppercase tracking-[0.1em] text-label"
         >
           {label}
+          {required ? (
+            <span aria-hidden="true" className="ml-1 text-accent">
+              *
+            </span>
+          ) : null}
         </label>
         {trailing}
       </div>

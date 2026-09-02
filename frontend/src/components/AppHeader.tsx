@@ -131,18 +131,13 @@ export default function AppHeader({
         ) : null}
 
         {variant !== 'read-only' && !currentUser ? (
-          <div className="hidden items-center gap-2.5 sm:flex">
-            <a
-              href={loginPath}
-              onClick={(e) => go(e, loginPath)}
-              className="font-[450] text-[13.5px] text-muted transition-colors duration-150 ease-out hover:text-bright"
-            >
-              Log in
-            </a>
-            <a href="/signup" onClick={(e) => go(e, '/signup')} className="btn-primary btn-sm">
-              Sign up
-            </a>
-          </div>
+          <a
+            href={loginPath}
+            onClick={(e) => go(e, loginPath)}
+            className="btn-secondary btn-sm hidden sm:inline-flex"
+          >
+            Log in
+          </a>
         ) : null}
 
         <button
@@ -208,14 +203,9 @@ export default function AppHeader({
                 </button>
               </>
             ) : (
-              <div className="flex flex-col gap-2.5">
-                <a href="/signup" onClick={(e) => go(e, '/signup')} className="btn-primary btn-sm w-full">
-                  Sign up
-                </a>
-                <a href={loginPath} onClick={(e) => go(e, loginPath)} className="btn-secondary btn-sm w-full">
-                  Log in
-                </a>
-              </div>
+              <a href={loginPath} onClick={(e) => go(e, loginPath)} className="btn-primary btn-sm w-full">
+                Log in
+              </a>
             )}
           </div>
         </DialogPanel>

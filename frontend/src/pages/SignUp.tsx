@@ -96,7 +96,11 @@ export default function SignUp({ onNavigate, routeSearch = '', onAuthChange }: S
       }
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <Field id="signup-name" label="Name">
+        <p className="font-mono text-[11.5px] text-meta">
+          <span aria-hidden="true" className="text-accent">*</span> All fields are required.
+        </p>
+
+        <Field id="signup-name" label="Name" required>
           <input
             id="signup-name"
             type="text"
@@ -109,7 +113,7 @@ export default function SignUp({ onNavigate, routeSearch = '', onAuthChange }: S
           />
         </Field>
 
-        <Field id="signup-email" label="Email">
+        <Field id="signup-email" label="Email" required>
           <input
             id="signup-email"
             type="email"
@@ -122,7 +126,7 @@ export default function SignUp({ onNavigate, routeSearch = '', onAuthChange }: S
           />
         </Field>
 
-        <Field id="signup-password" label="Password">
+        <Field id="signup-password" label="Password" required>
           <input
             id="signup-password"
             type="password"

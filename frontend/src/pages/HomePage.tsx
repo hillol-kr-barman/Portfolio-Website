@@ -1,11 +1,20 @@
 import { useState } from 'react'
 import type { AuthUser } from '@hillolbarman/ui'
 import PageShell from '../components/PageShell'
+import { ArrowRightIcon, CheckIcon, CoffeeIcon, DownloadIcon, MailIcon } from '../components/Icons'
 import SectionRule from '../components/SectionRule'
 import CodePanel, { Cm, Kw, Str } from '../components/CodePanel'
 import { projects, featuredProjectIds, stackPanel, techStackLogos } from './pageData/homePageData'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+
+interface NewsletterResponse {
+  message?: string
+  detail?: string
+  email?: string
+  /** false when the address was already subscribed. */
+  created?: boolean
+}
 
 interface HomePageProps {
   onNavigate: (to: string) => void
@@ -18,6 +27,9 @@ export default function HomePage({ onNavigate, currentUser, onLogout, currentPat
   const [newsletterEmail, setNewsletterEmail] = useState('')
   const [newsletterMessage, setNewsletterMessage] = useState('')
   const [isNewsletterSubmitting, setIsNewsletterSubmitting] = useState(false)
+  /** Set once the address is on the list, whether this request added it or it
+      was already there. Both outcomes end the same way for the reader. */
+  const [isSubscribed, setIsSubscribed] = useState(false)
 
   const handleNavigate = (event: React.MouseEvent<HTMLAnchorElement>, to: string) => {
     event.preventDefault()
@@ -45,10 +57,10 @@ export default function HomePage({ onNavigate, currentUser, onLogout, currentPat
         body: JSON.stringify({ email: trimmedEmail.toLowerCase() }),
       })
 
-      let payload: { message?: string; detail?: string } | null = null
+      let payload: NewsletterResponse | null = null
 
       try {
-        payload = await response.json() as { message?: string; detail?: string }
+        payload = await response.json() as NewsletterResponse
       } catch {
         payload = null
       }
@@ -58,8 +70,14 @@ export default function HomePage({ onNavigate, currentUser, onLogout, currentPat
         throw new Error(detail)
       }
 
-      setNewsletterMessage(payload?.message || `${trimmedEmail} has been added to the mailing list.`)
-      setNewsletterEmail('')
+      // The API reports whether it inserted a row or found the address already
+      // present. Neither is an error — both mean the reader is on the list.
+      setIsSubscribed(true)
+      setNewsletterMessage(
+        payload?.created === false
+          ? 'You are already on the list.'
+          : payload?.message || `${trimmedEmail} has been added to the mailing list.`,
+      )
     } catch (error) {
       setNewsletterMessage(
         error instanceof Error ? error.message : 'Could not join the newsletter right now.',
@@ -99,9 +117,11 @@ export default function HomePage({ onNavigate, currentUser, onLogout, currentPat
 
           <div className="mt-[34px] flex flex-wrap gap-3">
             <a href="/projects" onClick={(e) => handleNavigate(e, '/projects')} className="btn-primary">
-              View Projects <span aria-hidden="true">→</span>
+              View Projects
+              <ArrowRightIcon />
             </a>
             <a href="/HillolBarman_Resume.pdf" download className="btn-secondary">
+              <DownloadIcon />
               Download CV
             </a>
           </div>
@@ -207,19 +227,46 @@ export default function HomePage({ onNavigate, currentUser, onLogout, currentPat
               name="newsletter-email"
               type="email"
               value={newsletterEmail}
-              disabled={isNewsletterSubmitting}
+              disabled={isNewsletterSubmitting || isSubscribed}
               onChange={(e) => {
                 setNewsletterEmail(e.target.value)
                 if (newsletterMessage) setNewsletterMessage('')
               }}
               placeholder="you@example.com"
-              className="field mt-2.5"
+              className="field mt-2.5 disabled:opacity-60"
             />
-            <button type="submit" disabled={isNewsletterSubmitting} className="btn-primary mt-2.5 w-full">
-              {isNewsletterSubmitting ? 'Subscribing…' : 'Subscribe'}
+            <button
+              type="submit"
+              disabled={isNewsletterSubmitting || isSubscribed}
+              className="btn-primary mt-2.5 w-full"
+            >
+              {isSubscribed ? <CheckIcon className="size-4" /> : null}
+              {isSubscribed ? 'Subscribed' : isNewsletterSubmitting ? 'Subscribing…' : 'Subscribe'}
             </button>
-            <p className="mt-3 min-h-8 font-mono text-[11.5px] leading-[1.6] text-faint">
+            <p
+              className={`mt-3 min-h-8 font-mono text-[11.5px] leading-[1.6] ${
+                isSubscribed ? 'text-accent' : 'text-faint'
+              }`}
+            >
               {newsletterMessage || 'Enter your email to receive occasional updates.'}
+              {/* A settled form is otherwise a dead end for anyone who
+                  mistyped their address. */}
+              {isSubscribed ? (
+                <>
+                  {' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSubscribed(false)
+                      setNewsletterMessage('')
+                      setNewsletterEmail('')
+                    }}
+                    className="text-muted underline underline-offset-2 transition-colors duration-150 ease-out hover:text-bright"
+                  >
+                    Use a different email
+                  </button>
+                </>
+              ) : null}
             </p>
           </form>
         </div>
@@ -236,9 +283,11 @@ export default function HomePage({ onNavigate, currentUser, onLogout, currentPat
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <a href="/about" onClick={(e) => handleNavigate(e, '/about')} className="btn-primary">
+            <MailIcon />
             Contact Me
           </a>
           <a href="/coffee" onClick={(e) => handleNavigate(e, '/coffee')} className="btn-secondary">
+            <CoffeeIcon />
             Support My Work
           </a>
         </div>

@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import ssl
 import uuid
@@ -27,6 +28,9 @@ class NewsletterSendRequest(BaseModel):
     from_email: str | None = None
     reply_to: str | None = None
     dry_run: bool = False
+
+
+logger = logging.getLogger("resume_project.newsletter")
 
 
 def get_ssl_context() -> ssl.SSLContext:
@@ -58,25 +62,19 @@ def request_json(
             raw_body = response.read().decode("utf-8")
             return json.loads(raw_body) if raw_body else None
     except error.HTTPError as exc:
+        # Resend and PostgREST error bodies carry API detail and schema hints.
+        # Log them in full; return nothing specific to the caller.
         raw_error = exc.read().decode("utf-8")
-
-        try:
-            parsed_error = json.loads(raw_error)
-            detail = (
-                parsed_error.get("message")
-                or parsed_error.get("error_description")
-                or parsed_error.get("msg")
-                or parsed_error.get("hint")
-                or parsed_error
-            )
-        except json.JSONDecodeError:
-            detail = raw_error or "External API request failed."
-
-        raise HTTPException(status_code=exc.code, detail=detail) from exc
-    except error.URLError as exc:
+        logger.error("%s %s failed: %s | body=%s", method, url, exc, raw_error)
         raise HTTPException(
             status_code=502,
-            detail=f"Could not reach external API: {exc.reason}",
+            detail="Upstream request failed. Please try again shortly.",
+        ) from exc
+    except error.URLError as exc:
+        logger.error("%s %s unreachable: %s", method, url, exc)
+        raise HTTPException(
+            status_code=502,
+            detail="Upstream service is unreachable. Please try again shortly.",
         ) from exc
 
 

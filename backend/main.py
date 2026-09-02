@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import ssl
 from pathlib import Path
@@ -15,7 +16,33 @@ except ImportError:  # pragma: no cover
     certifi = None
 
 
+logger = logging.getLogger("resume_project")
+
 app = FastAPI(title="Resume Project API")
+
+
+def relay_upstream_error(source: str, exc: Exception, raw: str | None = None) -> str:
+    """Log an upstream failure in full and return a message safe to show a client.
+
+    Provider errors routinely embed credentials and internal detail — a Stripe
+    auth failure quotes a partial secret key, and PostgREST errors carry schema
+    hints. None of that belongs in a browser response.
+    """
+    logger.error("%s call failed: %s%s", source, exc, f" | body={raw}" if raw else "")
+    return f"{source} request failed. Please try again shortly."
+
+
+def client_safe_message(parsed: object, keys: tuple[str, ...]) -> str | None:
+    """Pull a provider message intended for end users, if it is a plain string."""
+    if not isinstance(parsed, dict):
+        return None
+
+    for key in keys:
+        value = parsed.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    return None
 
 class CheckoutRequest(BaseModel):
     tier: str | None = None
@@ -30,12 +57,44 @@ PRICE_MAP = {
 MIN_CUSTOM_AMOUNT_CENTS = 2600
 MAX_CUSTOM_AMOUNT_CENTS = 1_000_000
 
+def get_allowed_origins() -> list[str]:
+    """Explicit origins. `allow_origins=["*"]` with credentials is invalid per
+    the CORS spec — browsers reject credentialed requests against a wildcard —
+    so the deployed frontend is named directly."""
+    configured = [
+        os.getenv("FRONTEND_BASE_URL", "").rstrip("/"),
+        os.getenv("PUBLIC_APP_URL", "").rstrip("/"),
+    ]
+
+    # The site is served from www but FRONTEND_BASE_URL may name the apex (it
+    # is also used to build Stripe return URLs, where either works). A browser
+    # sends whichever host it is on, so accept both spellings rather than
+    # letting a redirect difference block every request.
+    variants: list[str] = []
+    for origin in configured:
+        if not origin:
+            continue
+        variants.append(origin)
+        if "://www." in origin:
+            variants.append(origin.replace("://www.", "://", 1))
+        else:
+            scheme, _, host = origin.partition("://")
+            if host:
+                variants.append(f"{scheme}://www.{host}")
+
+    defaults = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
+    return sorted({origin for origin in variants + defaults if origin})
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=get_allowed_origins(),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Admin-Token"],
 )
 
 
@@ -169,15 +228,18 @@ def supabase_sign_up(payload: SignUpRequest) -> dict:
 
         try:
             parsed_error = json.loads(raw_error)
-            detail = parsed_error.get("msg") or parsed_error.get("error_description") or parsed_error
         except json.JSONDecodeError:
-            detail = raw_error or "Supabase signup failed."
+            parsed_error = None
+
+        detail = client_safe_message(parsed_error, ("msg", "error_description"))
+        if detail is None:
+            detail = relay_upstream_error("Signup", exc, raw_error)
 
         raise HTTPException(status_code=exc.code, detail=detail) from exc
     except error.URLError as exc:
         raise HTTPException(
             status_code=502,
-            detail=f"Could not reach Supabase: {exc.reason}",
+            detail=relay_upstream_error("Supabase", exc),
         ) from exc
 
 
@@ -208,19 +270,14 @@ def subscribe_to_newsletter(payload: NewsletterSubscribeRequest) -> dict:
             raw_body = response.read().decode("utf-8")
             rows = json.loads(raw_body) if raw_body else []
     except error.HTTPError as exc:
+        # PostgREST errors carry schema hints; log them, do not ship them.
         raw_error = exc.read().decode("utf-8")
-
-        try:
-            parsed_error = json.loads(raw_error)
-            detail = parsed_error.get("message") or parsed_error.get("hint") or parsed_error
-        except json.JSONDecodeError:
-            detail = raw_error or "Newsletter signup failed."
-
-        raise HTTPException(status_code=exc.code, detail=detail) from exc
+        detail = relay_upstream_error("Newsletter", exc, raw_error)
+        raise HTTPException(status_code=502, detail=detail) from exc
     except error.URLError as exc:
         raise HTTPException(
             status_code=502,
-            detail=f"Could not reach Supabase: {exc.reason}",
+            detail=relay_upstream_error("Supabase", exc),
         ) from exc
 
     created_row = rows[0] if rows else None
@@ -305,7 +362,11 @@ def create_checkout_session(payload: CheckoutRequest):
             ],
         )
     except stripe.error.StripeError as exc:
-        message = getattr(exc, "user_message", None) or str(exc) or "Stripe checkout session creation failed."
+        # `user_message` is Stripe's own end-user copy (card declined, etc.) and
+        # is safe to pass through. `str(exc)` is not — on an auth failure it
+        # quotes a partial secret key.
+        safe = getattr(exc, "user_message", None)
+        message = safe if isinstance(safe, str) and safe.strip() else relay_upstream_error("Stripe", exc)
         raise HTTPException(status_code=502, detail=message) from exc
 
     return {"url": session.url}

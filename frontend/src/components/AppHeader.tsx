@@ -57,8 +57,8 @@ export default function AppHeader({
 
   return (
     <header
-      className={`z-50 flex h-16 items-center border-b border-hair ${
-        isApp ? 'px-6' : 'sticky top-0 bg-canvas/85 px-5 backdrop-blur-md sm:px-10'
+      className={`z-50 flex h-16 items-center border-b border-hair px-5 sm:px-10 ${
+        isApp ? '' : 'sticky top-0 bg-canvas/85 backdrop-blur-md'
       }`}
     >
       <Wordmark onNavigate={onNavigate} />

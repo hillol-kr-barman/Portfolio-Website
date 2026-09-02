@@ -559,7 +559,7 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
       />
 
       {/* ── Toolbar ────────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-hair px-6 py-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-hair px-5 py-3.5 sm:px-10">
         <div className="flex items-baseline gap-3.5">
           <button
             type="button"
@@ -594,7 +594,7 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
       </div>
 
       {error ? (
-        <p role="alert" className="border-b border-danger/30 bg-danger/[0.08] px-6 py-2.5 text-[13px] text-[#e2a5a1]">
+        <p role="alert" className="border-b border-danger/30 bg-danger/[0.08] px-5 py-2.5 text-[13px] text-[#e2a5a1] sm:px-10">
           {error}
         </p>
       ) : null}

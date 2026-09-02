@@ -91,6 +91,7 @@
 
 @layer base {
   html {
+    scrollbar-gutter: stable;
     background: var(--color-canvas);
     color: var(--color-strong);
     font-family: var(--font-sans);

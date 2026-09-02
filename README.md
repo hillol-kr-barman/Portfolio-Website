@@ -7,11 +7,11 @@ The core build is done for now. I may still tweak the visual design later, but t
 ## What Is In Here
 
 - A React + Vite frontend with a custom single-page routing setup.
-- A responsive portfolio home page with animated background beams, featured projects, tech stack badges, newsletter signup, and support/contact calls to action.
-- A projects page with paginated project cards.
+- A responsive portfolio home page with a split hero and `stack.ts` code panel, featured projects, tech stack tiles, newsletter signup, and availability calls to action.
+- A projects page listing active work with status pills and per-project technology chips.
 - An about page with profile details, work history, education, achievements, a timeline, and a downloadable PDF resume.
-- Supabase auth for login, registration, logout, forgot password, and password reset flows.
-- A Monaco-powered code playground where logged-in users can save snippets, reopen them later, delete one or all saved snippets, and create shareable links.
+- Supabase auth for login, signup, logout, forgot password, and password reset flows.
+- A Monaco-powered code playground laid out as a three-column app frame — document rail, editor with an open-file tab strip, and a document/sharing/activity inspector — where logged-in users can save snippets, reopen them later, delete one or all saved snippets, and create shareable read-only links.
 - A FastAPI backend for newsletter subscription, Supabase signup support, and Stripe Checkout session creation.
 - Stripe-powered support tiers and custom support amounts on the coffee page.
 - Supabase SQL scripts for the playground document table, row-level security policies, and auth profile syncing.
@@ -23,11 +23,13 @@ The frontend is built with:
 
 - React 19
 - Vite
+- TypeScript
 - Tailwind CSS 4 through the Vite plugin
 - Headless UI
 - Heroicons
 - Monaco Editor
 - Supabase JS
+- `@hillolbarman/ui` for shared types and dialog primitives
 
 The backend is built with:
 
@@ -40,21 +42,29 @@ The backend is built with:
 ## Main Pages
 
 - `/` - the main Lazymate landing page with the hero, stack section, featured builds, newsletter signup, and support CTA.
-- `/projects` - the full projects list with pagination.
+- `/projects` - the full projects list.
 - `/playground` - the code playground. Anyone can view the editor, but saving and sharing documents requires login.
 - `/about` - profile, contact details, work/education history, achievements, timeline, and CV download.
 - `/coffee` - support page with Stripe Checkout tiers and custom amount support.
-- `/login`, `/register`, `/forgot-password`, `/reset-password` - Supabase-backed auth screens.
-- `/components-test` - a component test page kept in the app for local UI checks.
+- `/login`, `/signup`, `/forgot-password`, `/reset-password` - Supabase-backed auth screens. `/register` still resolves, as an alias of `/signup`.
+- `/playground?share=<token>` - the read-only recipient view for a shared snippet.
 - Any unknown route falls through to the custom 404 page.
 
 ## How The App Is Put Together
 
-The root React app lives in `src/`. `src/App.jsx` owns the lightweight client-side routing, lazy-loads most pages, tracks the current Supabase user, and passes navigation/auth state into the pages.
+The root React app lives in `src/`. `src/App.tsx` owns the lightweight client-side routing, lazy-loads most pages, tracks the current Supabase user, and passes navigation/auth state into the pages.
 
-Shared layout pieces live in `src/components/`, including the site header, footer, project cards, confirmation messages, alert dialog, share modal, and background beam effect.
+Shared layout pieces live in `src/components/`: `PageShell` (canvas grid + header + footer), `AppHeader` / `AppFooter`, `SectionRule` (the `200px 1fr` eyebrow grid that every content section uses), `CodePanel`, `AuthShell`, `Dialogs`, `SharedSnippetView`, and the `LogoMark` / `Wordmark` brand pair.
 
-Most portfolio copy and project card data is in `src/pages/pageData/homePageData.jsx`. The saved playground documents are handled by `src/lib/playgroundStore.js`, with the Supabase browser client configured in `src/lib/supabaseClient.js`.
+Most portfolio copy and project data is in `src/pages/pageData/homePageData.tsx`. Playground language options, starter snippets, and relative timestamps live in `src/lib/playgroundLanguages.ts`; saved documents are handled by `src/lib/playgroundStore.ts`, with the Supabase browser client configured in `src/lib/supabaseClient.ts`.
+
+## Design System
+
+The visual language is a calm documentation-site aesthetic: tight geometric sans typography (Geist / Geist Mono), generous whitespace, hairline dividers, numbered section rules, and a 56x56 canvas grid.
+
+All tokens live in `src/index.css`, which overrides the base tokens from `@hillolbarman/ui`. The accent is `#34d399` — roughly half the chroma of the old `#9eff1f` lime, at an emerald hue. It is a **state** colour only: active nav dot, live status, code strings, share-on, active document, current timeline period. It appears at most two or three times per screen; a fourth candidate becomes `--color-bright` instead. Primary buttons are near-white (`#e9eef1`), never green, and carry no glow.
+
+`src/index.css` also resets the element defaults that `@hillolbarman/ui` ships in its base layer (mono accent anchors, bold headings, muted paragraphs), because the redesign drives all of that from utilities.
 
 The backend lives in `backend/`. It exposes a health check, signup helper, newsletter subscription endpoint, and Stripe checkout endpoint.
 
@@ -194,11 +204,11 @@ It also supports a custom amount, with validation in both the frontend and backe
 |   |-- components/
 |   |-- lib/
 |   |-- pages/
-|   |-- App.jsx
-|   |-- main.jsx
+|   |-- App.tsx
+|   |-- main.tsx
 |   `-- index.css
 |-- package.json
-|-- vite.config.js
+|-- vite.config.ts
 |-- vercel.json
 `-- README.md
 ```
@@ -217,4 +227,10 @@ In production, the frontend needs `VITE_API_BASE_URL` pointed at the deployed Fa
 
 ## Current State
 
-The project is finished from a core-feature point of view. The remaining work, if any, is mostly design polish, copy tweaks, or swapping placeholder project data for more specific real project entries.
+The project is finished from a core-feature point of view and has been through a full visual redesign.
+
+Known follow-ups:
+
+- **Playground output pane.** The design includes an Output / Problems pane below the editor with real stdout and a run timing. Code execution does not exist yet, so the pane is not built and the editor fills the centre column. The `Cmd-Enter` "Run" shortcut is listed in the rail but is not wired up.
+- **Technology icons** still load from `cdn.simpleicons.org` at runtime. Self-host them for production.
+- **GitHub sign-in** on the auth screens calls Supabase OAuth. It needs the GitHub provider enabled in the Supabase project; until then the button surfaces a provider error.

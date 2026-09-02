@@ -1,11 +1,21 @@
 import { useMemo, useState } from 'react'
 import type { AuthUser } from '@hillolbarman/ui'
-import AppHeader from '../components/AppHeader'
-import AppFooter from '../components/AppFooter'
+import PageShell from '../components/PageShell'
+import SectionRule from '../components/SectionRule'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
 
-const supportTiers = [
+interface SupportTier {
+  id: string
+  amount: string
+  label: string
+  cta: string
+  description: string
+  /** The recommended tier carries the accent label, border, wash and primary button. */
+  recommended?: boolean
+}
+
+const supportTiers: SupportTier[] = [
   {
     id: 'espresso',
     amount: '$5',
@@ -19,6 +29,7 @@ const supportTiers = [
     label: 'Standard Support',
     cta: 'Support with $10',
     description: 'Additional support for continued development, hosting, and professional project improvements.',
+    recommended: true,
   },
   {
     id: 'snacks',
@@ -116,89 +127,110 @@ export default function BuyMeCoffee({ onNavigate, currentUser, onLogout, current
   }
 
   return (
-    <div>
-      <AppHeader onNavigate={onNavigate} currentUser={currentUser} onLogout={onLogout} currentPath={currentPath} />
+    <PageShell
+      onNavigate={onNavigate}
+      currentPath={currentPath}
+      currentUser={currentUser}
+      onLogout={onLogout}
+    >
+      <div className="border-b border-hair px-5 pb-12 pt-14 sm:px-10 lg:pt-[72px]">
+        <p className="eyebrow">Support My Work</p>
+        <h1 className="mt-4.5 max-w-[20ch] text-[clamp(2rem,5.5vw,48px)] font-semibold leading-[1.08] tracking-[-0.04em] text-ink">
+          Support continued portfolio development.
+        </h1>
 
-      <main className="mx-auto max-w-6xl px-5 pb-20 pt-28 lg:px-6">
-        <section className="overflow-hidden rounded-3xl border border-white/10 bg-surface">
-          <div className="flex flex-col items-center text-center">
-            <div className="px-5 py-6 sm:px-6 sm:py-7">
-              <p className="type-eyebrow">Support My Work</p>
-              <h1 className="type-section-title mt-4 max-w-2xl">Support continued portfolio development.</h1>
+        {shouldShowDefaultMessage ? (
+          <p className="mt-4.5 max-w-[60ch] text-[clamp(15.5px,2vw,17px)] leading-[1.7] text-body text-pretty">
+            Select a support tier to continue to secure Stripe Checkout.
+          </p>
+        ) : null}
 
-              {shouldShowDefaultMessage ? (
-                <p className="type-body mt-4 max-w-2xl">Select a support tier to continue to secure Stripe Checkout.</p>
-              ) : null}
+        {checkoutStatus === 'success' ? (
+          <p className="mt-6 max-w-[60ch] rounded-[10px] border border-accent/25 bg-accent/[0.05] px-4 py-3 text-[14.5px] leading-[1.7] text-strong">
+            Payment completed. Thank you for supporting the work.
+          </p>
+        ) : null}
 
-              {checkoutStatus === 'success' ? (
-                <div className="mt-6 rounded-2xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-white">
-                  Payment completed. Thank you for supporting the work.
-                </div>
-              ) : null}
+        {checkoutStatus === 'cancelled' ? (
+          <p className="mt-6 max-w-[60ch] rounded-[10px] border border-input px-4 py-3 text-[14.5px] leading-[1.7] text-body">
+            Checkout was cancelled. You can try again at any time.
+          </p>
+        ) : null}
 
-              {checkoutStatus === 'cancelled' ? (
-                <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white">
-                  Checkout was cancelled. You can try again at any time.
-                </div>
-              ) : null}
+        {checkoutError ? (
+          <p
+            role="alert"
+            className="mt-6 max-w-[60ch] rounded-[10px] border border-danger/40 bg-danger/[0.08] px-4 py-3 text-[14.5px] leading-[1.7] text-[#e2a5a1]"
+          >
+            {checkoutError}
+          </p>
+        ) : null}
+      </div>
 
-              {checkoutError ? (
-                <div className="mt-6 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-                  {checkoutError}
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          <section className="m-5 sm:m-6">
-            <div className="grid gap-4 md:grid-cols-3">
-              {supportTiers.map((tier) => (
-                <article key={tier.amount} className="card-panel flex h-full flex-col">
-                  <p className="type-eyebrow">{tier.label}</p>
-                  <p className="mt-2 text-xl font-semibold text-white">{tier.amount}</p>
-                  <p className="type-body mt-2 flex-1">{tier.description}</p>
-                  <button
-                    type="button"
-                    onClick={() => startCheckout({ tier: tier.id })}
-                    disabled={isSubmittingTier !== null}
-                    className="mt-4 inline-flex w-full justify-center rounded-md border border-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-accent/60 hover:text-accent disabled:cursor-wait disabled:opacity-80"
-                  >
-                    {isSubmittingTier === tier.id ? 'Redirecting...' : tier.cta}
-                  </button>
-                </article>
-              ))}
-            </div>
-            <div className="card-panel mt-4">
-              <p className="type-eyebrow">Custom Support</p>
-              <div className="mt-2">
-                <input
-                  id="custom_amount"
-                  name="custom_amount"
-                  type="number"
-                  min="1"
-                  step="0.01"
-                  inputMode="decimal"
-                  placeholder="30.00"
-                  value={customAmount}
-                  onChange={(e) => setCustomAmount(e.target.value)}
-                  className="block w-full rounded-md border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-gray-500 focus:border-accent/60 focus:outline-none"
-                />
-              </div>
-              <p className="type-body mt-2">Enter a custom amount to support ongoing portfolio development and technical work.</p>
+      <SectionRule index="01" label="Tiers" last className="pb-16">
+        <div className="grid gap-4 md:grid-cols-3">
+          {supportTiers.map((tier) => (
+            <article
+              key={tier.id}
+              className={`flex flex-col gap-2.5 rounded-[14px] border p-6 ${
+                tier.recommended
+                  ? 'border-accent/35 bg-accent/[0.04]'
+                  : 'row-hover border-white/[0.08]'
+              }`}
+            >
+              <p className={`eyebrow ${tier.recommended ? 'text-accent' : ''}`}>{tier.label}</p>
+              <p className="m-0 text-[34px] font-semibold tracking-[-0.035em] text-ink">
+                {tier.amount}
+              </p>
+              <p className="m-0 flex-1 text-[14.5px] leading-[1.7] text-dim text-pretty">
+                {tier.description}
+              </p>
               <button
                 type="button"
-                onClick={() => startCheckout({ customAmount })}
+                onClick={() => startCheckout({ tier: tier.id })}
                 disabled={isSubmittingTier !== null}
-                className="mt-4 inline-flex w-full justify-center rounded-md border border-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-accent/60 hover:text-accent disabled:cursor-wait disabled:opacity-80"
+                className={`${tier.recommended ? 'btn-primary' : 'btn-secondary'} mt-2 w-full py-2.5 text-[13.5px]`}
               >
-                {isSubmittingTier === 'custom' ? 'Redirecting...' : 'Support with a custom amount'}
+                {isSubmittingTier === tier.id ? 'Redirecting…' : tier.cta}
               </button>
-            </div>
-          </section>
-        </section>
-      </main>
+            </article>
+          ))}
+        </div>
 
-      <AppFooter />
-    </div>
+        <div className="row-hover mt-4 grid items-end gap-6 rounded-[14px] border border-white/[0.08] p-6 lg:grid-cols-[1fr_260px]">
+          <div>
+            <p className="eyebrow">Custom Support</p>
+            <label htmlFor="custom_amount" className="sr-only">
+              Custom support amount in AUD
+            </label>
+            <p className="mt-2.5 max-w-[60ch] text-[14.5px] leading-[1.7] text-dim">
+              Enter a custom amount to support ongoing portfolio development and technical work.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2.5">
+            <input
+              id="custom_amount"
+              name="custom_amount"
+              type="number"
+              min="1"
+              step="0.01"
+              inputMode="decimal"
+              placeholder="30.00"
+              value={customAmount}
+              onChange={(e) => setCustomAmount(e.target.value)}
+              className="field field-mono rounded-[10px]"
+            />
+            <button
+              type="button"
+              onClick={() => startCheckout({ customAmount })}
+              disabled={isSubmittingTier !== null}
+              className="btn-secondary w-full py-2.5 text-[13.5px]"
+            >
+              {isSubmittingTier === 'custom' ? 'Redirecting…' : 'Support with a custom amount'}
+            </button>
+          </div>
+        </div>
+      </SectionRule>
+    </PageShell>
   )
 }

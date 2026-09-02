@@ -10,6 +10,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from newsletter_api import router as newsletter_router
+
 try:
     import certifi
 except ImportError:  # pragma: no cover
@@ -30,6 +32,23 @@ def relay_upstream_error(source: str, exc: Exception, raw: str | None = None) ->
     """
     logger.error("%s call failed: %s%s", source, exc, f" | body={raw}" if raw else "")
     return f"{source} request failed. Please try again shortly."
+
+
+def is_duplicate_error(status_code: int, raw_body: str) -> bool:
+    """True when Postgres rejected an insert for violating a unique constraint.
+
+    PostgREST surfaces SQLSTATE 23505 as HTTP 409. Matching on the SQLSTATE is
+    the reliable half; the status alone can mean other conflicts.
+    """
+    if status_code != 409:
+        return False
+
+    try:
+        parsed = json.loads(raw_body)
+    except json.JSONDecodeError:
+        return False
+
+    return isinstance(parsed, dict) and parsed.get("code") == "23505"
 
 
 def client_safe_message(parsed: object, keys: tuple[str, ...]) -> str | None:
@@ -255,8 +274,13 @@ def subscribe_to_newsletter(payload: NewsletterSubscribeRequest) -> dict:
     request_body = {"email": normalized_email}
 
     # Newsletter writes need the service role key because public clients should not insert directly.
+    #
+    # `on_conflict=email` names the constraint that `resolution=ignore-duplicates`
+    # should ignore. Without it PostgREST defaults to the primary key, so a
+    # repeat address raised a unique violation (23505 -> HTTP 409) instead of
+    # being quietly skipped.
     req = request.Request(
-        f"{supabase_url}/rest/v1/newsletter_subscribers",
+        f"{supabase_url}/rest/v1/newsletter_subscribers?on_conflict=email",
         data=json.dumps(request_body).encode("utf-8"),
         headers={
             "apikey": supabase_key,
@@ -276,6 +300,13 @@ def subscribe_to_newsletter(payload: NewsletterSubscribeRequest) -> dict:
         # status still distinguishes "your request was rejected" from "the
         # upstream broke" — telling a reader to retry a permanent 4xx is wrong.
         raw_error = exc.read().decode("utf-8")
+
+        # A repeat address is a normal outcome, not a failure. Belt and braces
+        # alongside on_conflict above: if the insert still surfaces a unique
+        # violation, report it as "already subscribed" rather than an error.
+        if is_duplicate_error(exc.code, raw_error):
+            return {"email": normalized_email, "created": False}
+
         logger.error("Newsletter insert failed: %s | body=%s", exc, raw_error)
         if 400 <= exc.code < 500:
             raise HTTPException(
@@ -298,6 +329,9 @@ def subscribe_to_newsletter(payload: NewsletterSubscribeRequest) -> dict:
         "email": normalized_email,
         "created": created_row is not None,
     }
+
+app.include_router(newsletter_router)
+
 
 @app.get("/")
 def read_root() -> dict[str, str]:

@@ -127,10 +127,18 @@ def require_newsletter_admin(x_admin_token: str | None) -> None:
 
 
 def get_public_base_url() -> str:
+    """Public origin of this API — where /newsletter/unsubscribe is served.
+
+    This must not be the frontend origin. The SPA host rewrites every unknown
+    path to index.html, so an unsubscribe link pointed there renders the site's
+    404 page and never reaches the endpoint. RENDER_EXTERNAL_URL is supplied by
+    Render automatically, so deployments there need no extra configuration.
+    """
     base_url = (
-        os.getenv("PUBLIC_APP_URL")
-        or os.getenv("FRONTEND_BASE_URL")
-        or "http://localhost:5173"
+        os.getenv("NEWSLETTER_PUBLIC_BASE_URL")
+        or os.getenv("RENDER_EXTERNAL_URL")
+        or os.getenv("API_PUBLIC_URL")
+        or "http://127.0.0.1:8000"
     )
     return base_url.rstrip("/")
 

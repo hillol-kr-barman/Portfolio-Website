@@ -21,6 +21,13 @@ interface AppHeaderProps {
   marker?: string
 }
 
+/** The account chip shows a first name; the full email lives in the menu. */
+function firstNameOf(user: AuthUser) {
+  const name = user.name?.trim()
+  if (name) return name.split(/\s+/)[0]
+  return user.email.split('@')[0] || 'Account'
+}
+
 function initialsOf(user: AuthUser) {
   const source = user.name?.trim() || user.email
   const parts = source.split(/[\s@._-]+/).filter(Boolean)
@@ -50,18 +57,16 @@ export default function AppHeader({
 
   return (
     <header
-      className={`z-50 flex items-center border-b border-hair ${
-        isApp
-          ? 'h-14 px-6'
-          : 'sticky top-0 h-16 bg-canvas/85 px-5 backdrop-blur-md sm:px-10'
+      className={`z-50 flex h-16 items-center border-b border-hair ${
+        isApp ? 'px-6' : 'sticky top-0 bg-canvas/85 px-5 backdrop-blur-md sm:px-10'
       }`}
     >
-      <Wordmark onNavigate={onNavigate} compact={isApp} />
+      <Wordmark onNavigate={onNavigate} />
 
       {/* Nav is right-aligned on every variant, with the account slot after it,
           so the header reads the same on a content page and in the playground. */}
       <nav
-        className={`ml-auto hidden items-center lg:flex ${isApp ? 'gap-6' : 'gap-[26px]'}`}
+        className="ml-auto hidden items-center gap-[26px] lg:flex"
       >
         {navigation.map((item) => (
           <a
@@ -84,12 +89,12 @@ export default function AppHeader({
 
         {variant !== 'read-only' && currentUser ? (
           <Menu as="div" className="relative hidden sm:block">
-            <MenuButton className="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-1 transition-colors duration-150 ease-out">
-              <span className="hidden font-mono text-[12px] text-muted xl:block">
-                {currentUser.email}
-              </span>
-              <span className="flex size-[26px] items-center justify-center rounded-full border border-accent/30 bg-accent/[0.14] font-mono text-[11px] font-semibold text-accent">
+            <MenuButton className="flex items-center gap-2 rounded-full border border-input py-1 pl-1 pr-3.5 transition-colors duration-150 ease-out hover:border-white/20">
+              <span className="flex size-[26px] shrink-0 items-center justify-center rounded-full border border-accent/30 bg-accent/[0.14] font-mono text-[11px] font-semibold text-accent">
                 {initialsOf(currentUser)}
+              </span>
+              <span className="max-w-[10rem] truncate text-[13px] font-[450] text-bright">
+                {firstNameOf(currentUser)}
               </span>
             </MenuButton>
 

@@ -8,9 +8,12 @@
   {unsubscribe_url} is replaced per recipient. If you delete it, a plain footer
   is appended automatically — but keeping it lets you style your own.
 
-  Run Script - (Update Subject)
+  Everything in this file is sent verbatim, comments included — never put a
+  token or any other secret here.
+
+  Send with (the token comes from backend/.env):
   python3 backend/scripts_send_newsletter.py backend/newsletters/template.html \
-  --subject "lazymate.dev has a new look"
+  --subject "Your subject"
 -->
 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:8px 0;color:#1f2937;">
 

@@ -308,7 +308,9 @@ def send_newsletter(
     require_newsletter_admin(x_admin_token)
     subscribers = get_active_subscribers()
 
-    if not subscribers:
+    # An empty list is only an error for a real send. A dry run is how you check
+    # the list before writing, so it reports zero rather than refusing.
+    if not subscribers and not payload.dry_run:
         raise HTTPException(status_code=400, detail="No active newsletter subscribers found.")
 
     return send_batch_to_resend(payload, subscribers)

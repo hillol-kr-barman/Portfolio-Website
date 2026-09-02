@@ -75,13 +75,18 @@ The FastAPI app currently exposes:
 - `GET /` - simple health check.
 - `POST /signup` - Supabase signup helper.
 - `POST /newsletter/subscribe` - stores newsletter subscribers in Supabase.
+- `POST /newsletter/send` - sends the newsletter to all active subscribers via Resend. Guarded by the `X-Admin-Token` header.
+- `GET /newsletter/unsubscribe` - unsubscribe page reached from the link in each email.
+- `POST /newsletter/unsubscribe` - RFC 8058 one-click endpoint, used by mail clients' own Unsubscribe button.
 - `POST /create-checkout-session` - creates a Stripe Checkout session for the coffee page.
 
 ## Local Setup
 
-Install the frontend dependencies from the project root:
+The frontend lives in `frontend/`, which is also the Vercel project root. Run
+these from there:
 
 ```bash
+cd frontend
 npm install
 ```
 
@@ -108,6 +113,11 @@ Run ESLint:
 ```bash
 npm run lint
 ```
+
+Lint covers `.ts` and `.tsx` through `typescript-eslint`. If it ever reports
+zero files, check the `files` glob in `eslint.config.js` — a `js,jsx`-only
+pattern silently matches nothing in this codebase and lets hook-order bugs
+through.
 
 ## Backend Setup
 
@@ -148,16 +158,36 @@ SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 STRIPE_SECRET_KEY=your_stripe_secret_key
 FRONTEND_BASE_URL=http://localhost:5173
+
+# Newsletter sending
+RESEND_API_KEY=your_resend_api_key
+RESEND_FROM_EMAIL=Your Name <newsletter@yourdomain>
+NEWSLETTER_ADMIN_TOKEN=a_long_random_string_you_invent
 ```
 
-The backend will also read compatible `VITE_SUPABASE_*` values from `.env.local` for some Supabase auth calls. For newsletter writes, it needs `SUPABASE_SERVICE_ROLE_KEY`.
+The backend will also read compatible `VITE_SUPABASE_*` values from `.env.local` for some Supabase auth calls. For newsletter writes, it needs `SUPABASE_SERVICE_ROLE_KEY` — the anon key cannot insert, and there is no fallback for this one.
+
+`NEWSLETTER_ADMIN_TOKEN` is not issued by any service. Invent it, and treat it as the only thing standing between the public internet and your send endpoint:
+
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+Optional:
+
+```bash
+NEWSLETTER_PUBLIC_BASE_URL=https://your-site   # host serving /newsletter/unsubscribe
+PUBLIC_APP_URL=https://your-site               # falls back to FRONTEND_BASE_URL
+```
+
+Unsubscribe links are built from `NEWSLETTER_PUBLIC_BASE_URL`, then `RENDER_EXTERNAL_URL` (which Render sets automatically). This must resolve to the **API**, not the site: an SPA host rewrites unknown paths to `index.html`, so a link pointed at the frontend renders the 404 page and never unsubscribes anyone. To serve it from the site domain instead, proxy the path — `frontend/vercel.json` has a rewrite for exactly this.
 
 ## Supabase Notes
 
 The playground uses a `playground_documents` table. The SQL for that is in:
 
 ```text
-backend/supabase_playground_documents.sql
+backend/sql/supabase_playground_documents.sql
 ```
 
 That script creates the table, adds a share token, updates `updated_at` through a trigger, enables RLS, lets owners manage their own documents, and allows public reads for documents marked as shared.
@@ -165,10 +195,61 @@ That script creates the table, adds a share token, updates `updated_at` through 
 There is also a small auth profile sync script:
 
 ```text
-backend/supabase_new_user_sync.sql
+backend/sql/supabase_new_user_sync.sql
 ```
 
-The newsletter endpoint writes to a `newsletter_subscribers` table through Supabase REST. Make sure that table exists in your Supabase project before relying on the newsletter form in production.
+The newsletter endpoint writes to a `newsletter_subscribers` table through Supabase REST. Run `backend/sql/newsletter_setup.sql` against your project before the first send — it adds the `is_active` and `unsubscribe_token` columns and backfills tokens for existing rows. Sending fails with a clear error if `unsubscribe_token` is missing.
+
+## Newsletter
+
+Subscribers are stored in Supabase, not in Resend. The signup form on the home
+page posts to `POST /newsletter/subscribe`; sending reads that table and hands
+the messages to Resend.
+
+### Writing and sending an issue
+
+Write the email as a plain `.html` file in `backend/newsletters/`, with a
+matching `.txt` beside it for the plain-text alternative. Copy `template.html`
+and `template.txt` to start.
+
+```bash
+python3 backend/scripts_send_newsletter.py backend/newsletters/letter_1.html \
+    --subject "Your subject"
+```
+
+That is a **dry run**: it reports the recipient count, batch count and body
+size, and sends nothing. Add `--send` to deliver, which asks for typed
+confirmation first. The admin token is read from `backend/.env`, the
+environment, or `--token`.
+
+Everything in the HTML file is transmitted verbatim, comments included. Never
+put a token or any other secret in one.
+
+Write `{unsubscribe_url}` anywhere in the HTML or text and it is replaced with
+that recipient's personal link. Omit it and a default footer is appended.
+
+### Deliverability
+
+Gmail and Yahoo have required three things of bulk senders since February 2024.
+Mail that is missing any of them tends to land in spam regardless of content:
+
+1. **SPF and DKIM** — published when you verify your domain in Resend.
+2. **DMARC** — a `TXT` record at `_dmarc.yourdomain`. The `p` tag is mandatory;
+   a record without it is invalid and treated as absent.
+
+   ```text
+   v=DMARC1; p=none; rua=mailto:you@yourdomain
+   ```
+
+   `p=none` is monitor-only and the right starting policy. Tighten to
+   `quarantine` once the reports show only your sender using the domain.
+3. **One-click unsubscribe** — the `List-Unsubscribe` and `List-Unsubscribe-Post`
+   headers, which `send_batch_to_resend` sets on every message. These are what
+   put a native Unsubscribe control in the mail client.
+
+A new sending domain has no reputation and may still be filtered for the first
+few sends. Marking a message as "not spam" moves that along faster than any
+header.
 
 ## Stripe Notes
 
@@ -192,24 +273,28 @@ It also supports a custom amount, with validation in both the frontend and backe
 .
 |-- backend/
 |   |-- main.py
+|   |-- newsletter_api.py
+|   |-- scripts_send_newsletter.py
+|   |-- newsletters/            # newsletter drafts + template
+|   |-- sql/
 |   |-- requirements.txt
-|   |-- Procfile
-|   |-- supabase_playground_documents.sql
-|   `-- supabase_new_user_sync.sql
-|-- public/
-|   |-- HillolBarman_Resume.pdf
-|   `-- _redirects
-|-- src/
-|   |-- assets/
-|   |-- components/
-|   |-- lib/
-|   |-- pages/
-|   |-- App.tsx
-|   |-- main.tsx
-|   `-- index.css
-|-- package.json
-|-- vite.config.ts
-|-- vercel.json
+|   `-- Procfile
+|-- frontend/
+|   |-- public/
+|   |   |-- HillolBarman_Resume.pdf
+|   |   `-- _redirects
+|   |-- src/
+|   |   |-- assets/
+|   |   |-- components/
+|   |   |-- lib/
+|   |   |-- pages/
+|   |   |-- App.tsx
+|   |   |-- main.tsx
+|   |   `-- index.css
+|   |-- package.json
+|   |-- vite.config.ts
+|   `-- vercel.json
+|-- .github/workflows/
 `-- README.md
 ```
 
@@ -234,3 +319,5 @@ Known follow-ups:
 - **Playground output pane.** The design includes an Output / Problems pane below the editor with real stdout and a run timing. Code execution does not exist yet, so the pane is not built and the editor fills the centre column. The `Cmd-Enter` "Run" shortcut is listed in the rail but is not wired up.
 - **Technology icons** still load from `cdn.simpleicons.org` at runtime. Self-host them for production.
 - **GitHub sign-in** on the auth screens calls Supabase OAuth. It needs the GitHub provider enabled in the Supabase project; until then the button surfaces a provider error.
+- **Unsubscribe links point at the API host.** `frontend/vercel.json` proxies `/newsletter/unsubscribe` so they can sit on the site domain via `NEWSLETTER_PUBLIC_BASE_URL`, but the rewrite was not taking effect when last checked. Confirm the proxy works before setting that variable — with it set and the proxy down, every unsubscribe link 404s.
+- **Newsletter has no composing UI.** Issues are written as HTML files and sent with `scripts_send_newsletter.py`. Resend's own Broadcasts dashboard offers a visual editor, but only for contacts stored in a Resend Audience — using it would mean syncing subscribers there instead of, or alongside, Supabase.

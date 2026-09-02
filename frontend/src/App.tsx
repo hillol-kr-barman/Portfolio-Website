@@ -45,9 +45,7 @@ export default function App() {
     search: window.location.search,
   }))
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
-  const [isPasswordRecoveryActive, setIsPasswordRecoveryActive] = useState(
-    () => window.sessionStorage.getItem(PASSWORD_RECOVERY_FLAG) === 'true',
-  )
+
 
   useEffect(() => {
     let isMounted = true
@@ -74,9 +72,6 @@ export default function App() {
             window.sessionStorage.removeItem(PASSWORD_RECOVERY_FLAG)
           }
 
-          setIsPasswordRecoveryActive(
-            isRecovery || window.sessionStorage.getItem(PASSWORD_RECOVERY_FLAG) === 'true',
-          )
         })
 
         unsubscribe = () => subscription.unsubscribe()
@@ -177,12 +172,14 @@ export default function App() {
   if (route.path === '/forgot-password' || route.path === '/reset-password') {
     return renderLazyPage(
       <PasswordRecovery
-        mode={route.path === '/reset-password' || isPasswordRecoveryActive ? 'reset' : 'forgot'}
+        /* Only the reset route shows the reset form. The session flag used to
+           override this too, which stranded anyone who opened a recovery link,
+           abandoned it, then came back via "Forgot?" in the same tab. */
+        mode={route.path === '/reset-password' ? 'reset' : 'forgot'}
         onNavigate={navigate}
         onAuthChange={handleAuthChange}
         onPasswordRecoveryConsumed={() => {
           window.sessionStorage.removeItem(PASSWORD_RECOVERY_FLAG)
-          setIsPasswordRecoveryActive(false)
         }}
       />,
     )

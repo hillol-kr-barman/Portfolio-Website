@@ -49,10 +49,19 @@ interface EditorTab {
   isDraft: boolean
 }
 
-/** An action deferred until the user resolves unsaved changes. */
+/**
+ * An action deferred until the user resolves unsaved changes.
+ *
+ * `run` is re-created from current state at the moment it fires rather than
+ * captured when the prompt opens — saving first mutates the document list and
+ * open tabs, and a closure taken beforehand would act on the stale versions.
+ */
 interface PendingAction {
   actionLabel: string
   run: () => void
+  /** Re-derives `run` against post-save state. Falls back to `run` when the
+      action does not depend on anything the save changes. */
+  rebuild?: () => () => void
 }
 
 function shareUrlFor(token: string) {
@@ -81,8 +90,12 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
   const [isSavingBeforeAction, setIsSavingBeforeAction] = useState(false)
   const tabStripRef = useRef<HTMLDivElement | null>(null)
+  /** Read inside deferred actions, which must not close over a stale id. */
+  const activeDocumentIdRef = useRef<string | null>(null)
   const [sharedDocument, setSharedDocument] = useState<PlaygroundDocument | null>(null)
   const [isResolvingShare, setIsResolvingShare] = useState(false)
+
+  activeDocumentIdRef.current = activeDocumentId
 
   const shareToken = useMemo(() => new URLSearchParams(routeSearch).get('share'), [routeSearch])
   const activeDocument = documents.find((doc) => doc.id === activeDocumentId) ?? null
@@ -161,11 +174,31 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
     logActivity('New snippet created')
   }, [logActivity])
 
-  const handleLanguageChange = (nextLanguage: string) => {
-    const shouldReplaceWithStarter = !activeDocumentId || code === getStarterSnippet(language)
+  const applyLanguage = (nextLanguage: string, replaceBuffer: boolean) => {
     setLanguage(nextLanguage)
-    if (shouldReplaceWithStarter) setCode(getStarterSnippet(nextLanguage))
+    if (replaceBuffer) setCode(getStarterSnippet(nextLanguage))
     setIsDirty(true)
+  }
+
+  const handleLanguageChange = (nextLanguage: string) => {
+    // Swapping in the new starter snippet is only safe while the buffer is
+    // still the old starter. `!activeDocumentId` used to short-circuit this,
+    // which silently destroyed everything typed into an unsaved draft.
+    const isUntouchedStarter = code === getStarterSnippet(language)
+
+    if (isUntouchedStarter) {
+      applyLanguage(nextLanguage, true)
+      return
+    }
+
+    if (!isDirty) {
+      applyLanguage(nextLanguage, false)
+      return
+    }
+
+    guardUnsaved(`switching to ${LANGUAGE_LABELS[nextLanguage] ?? nextLanguage}`, () =>
+      applyLanguage(nextLanguage, false),
+    )
   }
 
   const handleSave = useCallback(async (): Promise<boolean> => {
@@ -253,12 +286,12 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
    * tab — has to clear unsaved work first.
    */
   const guardUnsaved = useCallback(
-    (actionLabel: string, run: () => void) => {
+    (actionLabel: string, run: () => void, rebuild?: () => () => void) => {
       if (!isDirty) {
         run()
         return
       }
-      setPendingAction({ actionLabel, run })
+      setPendingAction({ actionLabel, run, rebuild })
     },
     [isDirty],
   )
@@ -271,7 +304,11 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
     // A failed save keeps the dialog open so the work is never dropped on the
     // strength of a request that did not land.
     if (!saved) return
-    pendingAction.run()
+
+    // Saving inserted a row and opened its tab; re-derive the action so it acts
+    // on that, not on the state captured when the prompt opened.
+    const run = pendingAction.rebuild ? pendingAction.rebuild() : pendingAction.run
+    run()
     setPendingAction(null)
   }
 
@@ -324,6 +361,18 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
     if (next) openDocument(next)
     else handleNewDocument()
   }
+
+  // Keep the active tab in view when the strip overflows. Declared here, above
+  // every early return, so the hook count is identical on all render paths.
+  const activeTabId = activeDocumentId ?? DRAFT_TAB_ID
+
+  useEffect(() => {
+    const strip = tabStripRef.current
+    if (!strip) return
+
+    const tab = strip.querySelector<HTMLElement>(`[data-tab-id="${CSS.escape(activeTabId)}"]`)
+    tab?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [activeTabId, openTabIds.length])
 
   const confirmDelete = async () => {
     if (!pendingDelete) return
@@ -406,16 +455,6 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
     }
   }
 
-  const activeTabId = activeDocumentId ?? DRAFT_TAB_ID
-
-  useEffect(() => {
-    const strip = tabStripRef.current
-    if (!strip) return
-
-    const tab = strip.querySelector<HTMLElement>(`[data-tab-id="${CSS.escape(activeTabId)}"]`)
-    tab?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-  }, [activeTabId, openTabIds.length])
-
   const renderRail = () => (
         <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
           <div className="border-b border-hair p-4">
@@ -463,12 +502,18 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
                   >
                     <button
                       type="button"
-                      onClick={() =>
+                      onClick={() => {
+                        // Reopening the active document is a no-op, so it must
+                        // not raise an unsaved-changes prompt it cannot honour.
+                        if (doc.id === activeDocumentId) {
+                          setRailOpen(false)
+                          return
+                        }
                         guardUnsaved(`opening ${doc.title}`, () => {
                           openDocument(doc)
                           setRailOpen(false)
                         })
-                      }
+                      }}
                       className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
                     >
                       <span
@@ -632,7 +677,7 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
                     <button
                       type="button"
                       onClick={() => {
-                        if (tab.isDraft) return
+                        if (tab.isDraft || tab.id === activeTabId) return
                         const doc = documents.find((item) => item.id === tab.id)
                         if (doc) guardUnsaved(`opening ${doc.title}`, () => openDocument(doc))
                       }}
@@ -657,7 +702,13 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
                           closeTab(tab.id)
                           return
                         }
-                        guardUnsaved(`closing ${tab.title}`, () => closeTab(tab.id))
+                        guardUnsaved(
+                          `closing ${tab.title}`,
+                          () => closeTab(tab.id),
+                          // After a save the draft has become a real document,
+                          // so the tab to close is that one, not the draft.
+                          () => () => closeTab(activeDocumentIdRef.current ?? tab.id),
+                        )
                       }}
                       aria-label={`Close ${tab.title}`}
                       className={`shrink-0 text-[13px] leading-none ${

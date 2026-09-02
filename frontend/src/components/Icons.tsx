@@ -1,11 +1,11 @@
+import type { SVGProps } from 'react'
+
 /**
  * Shared line icons. Stroke icons inherit currentColor at 2px; brand glyphs are
  * filled. Every icon takes a className so callers set the size — `size-4` for
  * buttons, `size-[15px]` for chips.
  */
-interface IconProps {
-  className?: string
-}
+type IconProps = SVGProps<SVGSVGElement>
 
 const stroke = {
   fill: 'none',
@@ -15,37 +15,38 @@ const stroke = {
   strokeLinejoin: 'round',
 } as const
 
-const base = (className: string) => ({
+const base = (className: string, rest: IconProps) => ({
   viewBox: '0 0 24 24',
   'aria-hidden': true as const,
+  ...rest,
   className: `shrink-0 ${className}`,
 })
 
-export const MailIcon = ({ className = 'size-4' }: IconProps) => (
-  <svg {...base(className)} {...stroke}>
+export const MailIcon = ({ className = 'size-4', ...rest }: IconProps) => (
+  <svg {...base(className, rest)} {...stroke}>
     <rect width="20" height="16" x="2" y="4" rx="2" />
     <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
   </svg>
 )
 
-export const DownloadIcon = ({ className = 'size-4' }: IconProps) => (
-  <svg {...base(className)} {...stroke}>
+export const DownloadIcon = ({ className = 'size-4', ...rest }: IconProps) => (
+  <svg {...base(className, rest)} {...stroke}>
     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
     <polyline points="7 10 12 15 17 10" />
     <line x1="12" y1="15" x2="12" y2="3" />
   </svg>
 )
 
-export const FileIcon = ({ className = 'size-4' }: IconProps) => (
-  <svg {...base(className)} {...stroke}>
+export const FileIcon = ({ className = 'size-4', ...rest }: IconProps) => (
+  <svg {...base(className, rest)} {...stroke}>
     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
     <polyline points="14 2 14 8 20 8" />
   </svg>
 )
 
 /** Arrow into a tray — the save action. */
-export const SaveIcon = ({ className = 'size-4' }: IconProps) => (
-  <svg {...base(className)} {...stroke}>
+export const SaveIcon = ({ className = 'size-4', ...rest }: IconProps) => (
+  <svg {...base(className, rest)} {...stroke}>
     <path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7" />
     <path d="M12 15V3" />
     <path d="m8 7 4-4 4 4" />
@@ -53,8 +54,8 @@ export const SaveIcon = ({ className = 'size-4' }: IconProps) => (
 )
 
 /** Three linked nodes — the share action. */
-export const ShareIcon = ({ className = 'size-4' }: IconProps) => (
-  <svg {...base(className)} {...stroke}>
+export const ShareIcon = ({ className = 'size-4', ...rest }: IconProps) => (
+  <svg {...base(className, rest)} {...stroke}>
     <circle cx="18" cy="5" r="3" />
     <circle cx="6" cy="12" r="3" />
     <circle cx="18" cy="19" r="3" />
@@ -62,22 +63,22 @@ export const ShareIcon = ({ className = 'size-4' }: IconProps) => (
   </svg>
 )
 
-export const CheckIcon = ({ className = 'size-4' }: IconProps) => (
-  <svg {...base(className)} {...stroke}>
+export const CheckIcon = ({ className = 'size-4', ...rest }: IconProps) => (
+  <svg {...base(className, rest)} {...stroke}>
     <polyline points="20 6 9 17 4 12" />
   </svg>
 )
 
-export const ArrowRightIcon = ({ className = 'size-4' }: IconProps) => (
-  <svg {...base(className)} {...stroke}>
+export const ArrowRightIcon = ({ className = 'size-4', ...rest }: IconProps) => (
+  <svg {...base(className, rest)} {...stroke}>
     <line x1="4" y1="12" x2="19" y2="12" />
     <polyline points="13 6 19 12 13 18" />
   </svg>
 )
 
 /** Coffee cup — the support action, matching the /coffee route. */
-export const CoffeeIcon = ({ className = 'size-4' }: IconProps) => (
-  <svg {...base(className)} {...stroke}>
+export const CoffeeIcon = ({ className = 'size-4', ...rest }: IconProps) => (
+  <svg {...base(className, rest)} {...stroke}>
     <path d="M17 8h1a4 4 0 1 1 0 8h-1" />
     <path d="M3 8h14v6a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5z" />
     <line x1="6" y1="2" x2="6" y2="5" />
@@ -86,8 +87,8 @@ export const CoffeeIcon = ({ className = 'size-4' }: IconProps) => (
   </svg>
 )
 
-export const GitHubIcon = ({ className = 'size-4' }: IconProps) => (
-  <svg {...base(className)} fill="currentColor">
+export const GitHubIcon = ({ className = 'size-4', ...rest }: IconProps) => (
+  <svg {...base(className, rest)} fill="currentColor">
     <path
       fillRule="evenodd"
       clipRule="evenodd"
@@ -96,8 +97,8 @@ export const GitHubIcon = ({ className = 'size-4' }: IconProps) => (
   </svg>
 )
 
-export const LinkedInIcon = ({ className = 'size-4' }: IconProps) => (
-  <svg {...base(className)} fill="currentColor">
+export const LinkedInIcon = ({ className = 'size-4', ...rest }: IconProps) => (
+  <svg {...base(className, rest)} fill="currentColor">
     <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.85-3.037-1.853 0-2.136 1.447-2.136 2.942v5.664H9.354V9h3.414v1.561h.049c.476-.9 1.637-1.85 3.37-1.85 3.602 0 4.267 2.371 4.267 5.455v6.286h-.007ZM5.337 7.433a2.062 2.062 0 1 1 0-4.124 2.062 2.062 0 0 1 0 4.124ZM7.114 20.452H3.558V9h3.556v11.452ZM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003Z" />
   </svg>
 )

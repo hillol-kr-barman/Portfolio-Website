@@ -57,6 +57,30 @@ PRICE_MAP = {
 MIN_CUSTOM_AMOUNT_CENTS = 2600
 MAX_CUSTOM_AMOUNT_CENTS = 1_000_000
 
+def load_env_file() -> None:
+    # Local runs may start from either the backend folder or the Vite project root.
+    env_candidates = [
+        Path(__file__).resolve().parent / ".env",
+        Path(__file__).resolve().parent.parent / ".env.local",
+    ]
+
+    for env_path in env_candidates:
+        if not env_path.exists():
+            continue
+
+        for line in env_path.read_text().splitlines():
+            stripped = line.strip()
+
+            if not stripped or stripped.startswith("#") or "=" not in stripped:
+                continue
+
+            key, value = stripped.split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip().strip("'\""))
+
+
+load_env_file()
+
+
 def get_allowed_origins() -> list[str]:
     """Explicit origins. `allow_origins=["*"]` with credentials is invalid per
     the CORS spec — browsers reject credentialed requests against a wildcard —
@@ -108,28 +132,6 @@ class NewsletterSubscribeRequest(BaseModel):
     email: str
 
 
-def load_env_file() -> None:
-    # Local runs may start from either the backend folder or the Vite project root.
-    env_candidates = [
-        Path(__file__).resolve().parent / ".env",
-        Path(__file__).resolve().parent.parent / ".env.local",
-    ]
-
-    for env_path in env_candidates:
-        if not env_path.exists():
-            continue
-
-        for line in env_path.read_text().splitlines():
-            stripped = line.strip()
-
-            if not stripped or stripped.startswith("#") or "=" not in stripped:
-                continue
-
-            key, value = stripped.split("=", 1)
-            os.environ.setdefault(key.strip(), value.strip().strip("'\""))
-
-
-load_env_file()
 
 
 def get_supabase_config() -> tuple[str, str]:
@@ -270,10 +272,20 @@ def subscribe_to_newsletter(payload: NewsletterSubscribeRequest) -> dict:
             raw_body = response.read().decode("utf-8")
             rows = json.loads(raw_body) if raw_body else []
     except error.HTTPError as exc:
-        # PostgREST errors carry schema hints; log them, do not ship them.
+        # PostgREST errors carry schema hints; log them, do not ship them. The
+        # status still distinguishes "your request was rejected" from "the
+        # upstream broke" — telling a reader to retry a permanent 4xx is wrong.
         raw_error = exc.read().decode("utf-8")
-        detail = relay_upstream_error("Newsletter", exc, raw_error)
-        raise HTTPException(status_code=502, detail=detail) from exc
+        logger.error("Newsletter insert failed: %s | body=%s", exc, raw_error)
+        if 400 <= exc.code < 500:
+            raise HTTPException(
+                status_code=exc.code,
+                detail="That email address could not be added to the list.",
+            ) from exc
+        raise HTTPException(
+            status_code=502,
+            detail="Newsletter request failed. Please try again shortly.",
+        ) from exc
     except error.URLError as exc:
         raise HTTPException(
             status_code=502,

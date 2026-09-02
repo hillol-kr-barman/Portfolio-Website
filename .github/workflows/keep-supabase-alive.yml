@@ -10,13 +10,13 @@ jobs:
       - name: Query Supabase table
         run: |
           response=$(curl -s -o response.json -w "%{http_code}" \
-            "${{ secrets.SUPABASE_URL }}/rest/v1/profiles?full_name=eq.Hillol&select=*" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/profiles?full_name=eq.Hillol&select=id" \
             -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}")
 
           echo "HTTP status: $response"
-          echo "Response body:"
-          cat response.json
+          # The body is not echoed: Actions logs are public on a public repo,
+          # and this response is a row from the profiles table.
 
           if [ "$response" -lt 200 ] || [ "$response" -ge 400 ]; then
             echo "Unexpected response: $response"

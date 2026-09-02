@@ -125,6 +125,11 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
   }, [shareToken])
 
   const openDocument = useCallback((doc: PlaygroundDocument) => {
+    // Clicking the document that is already open must not touch the editor:
+    // reloading the stored copy would throw away unsaved edits, and it logged
+    // a duplicate activity entry on every click.
+    if (doc.id === activeDocumentId) return
+
     setActiveDocumentId(doc.id)
     setOpenTabIds((ids) => (ids.includes(doc.id) ? ids : [...ids, doc.id]))
     setTitle(doc.title)
@@ -133,7 +138,7 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
     setIsDirty(false)
     setShareUrl(doc.isShared && doc.shareToken ? shareUrlFor(doc.shareToken) : '')
     logActivity(`Opened ${doc.title}`)
-  }, [logActivity])
+  }, [activeDocumentId, logActivity])
 
   const handleNewDocument = useCallback(() => {
     setActiveDocumentId(null)
@@ -560,7 +565,7 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
                     key={tab.id}
                     data-tab-id={tab.id}
                     title={tab.title || NEW_DOCUMENT_TITLE}
-                    className={`flex max-w-[200px] shrink-0 items-center gap-2.5 border-r border-hair px-4 py-[11px] ${
+                    className={`relative flex max-w-[200px] shrink-0 items-center gap-2.5 border-r border-hair px-4 py-[11px] ${
                       isActive ? 'bg-panel' : ''
                     }`}
                   >
@@ -573,9 +578,6 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
                       }}
                       className="flex min-w-0 items-center gap-2.5"
                     >
-                      {isActive ? (
-                        <span className="size-1.5 shrink-0 rounded-full bg-accent" />
-                      ) : null}
                       <span
                         className={`truncate font-mono text-[12.5px] ${
                           isActive ? 'text-[#e3e9ed]' : 'text-meta'
@@ -597,6 +599,13 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
                     >
                       ×
                     </button>
+
+                    {isActive ? (
+                      <span
+                        aria-hidden="true"
+                        className="absolute inset-x-0 bottom-0 h-0.5 bg-accent"
+                      />
+                    ) : null}
                   </div>
                 )
               })}

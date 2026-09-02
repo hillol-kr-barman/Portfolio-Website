@@ -70,7 +70,7 @@ export default function SignUp({ onNavigate, routeSearch = '', onAuthChange }: S
       onNavigate={onNavigate}
       eyebrow="Account"
       title="Create an account"
-      lead="Free, and only used for the playground. No newsletter, no tracking."
+      lead="Free, and only used for the playground. No newsletter, no tracking. All fields are required."
       aside={
         <>
           <p className="eyebrow">What you get</p>
@@ -95,11 +95,7 @@ export default function SignUp({ onNavigate, routeSearch = '', onAuthChange }: S
         </>
       }
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <p className="font-mono text-[11.5px] text-meta">
-          <span aria-hidden="true" className="text-accent">*</span> All fields are required.
-        </p>
-
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
         <Field id="signup-name" label="Name" required>
           <input
             id="signup-name"
@@ -138,7 +134,7 @@ export default function SignUp({ onNavigate, routeSearch = '', onAuthChange }: S
             placeholder="At least 8 characters"
             className="field"
           />
-          <div className="mt-[9px] flex gap-1.5" aria-hidden="true">
+          <div className="mt-2 flex gap-1.5" aria-hidden="true">
             {[0, 1, 2].map((i) => (
               <span
                 key={i}
@@ -148,21 +144,21 @@ export default function SignUp({ onNavigate, routeSearch = '', onAuthChange }: S
               />
             ))}
           </div>
-          <p className="mt-2 font-mono text-[11.5px] text-meta">
+          <p className="mt-1.5 font-mono text-[11px] text-meta">
             8+ characters · one number · one symbol
           </p>
         </Field>
 
         {error ? <FormError message={error} /> : null}
 
-        <button type="submit" disabled={isSubmitting} className="btn-primary mt-1.5 w-full rounded-[9px] py-3">
+        <button type="submit" disabled={isSubmitting} className="btn-primary mt-1 w-full rounded-[9px] py-2.5">
           {isSubmitting ? 'Creating account…' : 'Create account'}
         </button>
 
         <OrRule />
         <GitHubButton label="Continue with GitHub" redirectTo={redirectTo} onError={setError} />
 
-        <p className="mt-2 text-[13.5px] text-muted">
+        <p className="text-[13.5px] text-muted">
           Already have an account?{' '}
           <a
             href="/login"

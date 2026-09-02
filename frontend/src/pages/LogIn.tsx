@@ -58,7 +58,7 @@ export default function LogIn({ onNavigate, routeSearch = '', onAuthChange }: Lo
         </CodePanel>
       }
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
         <Field id="login-email" label="Email">
           <input
             id="login-email"
@@ -107,14 +107,14 @@ export default function LogIn({ onNavigate, routeSearch = '', onAuthChange }: Lo
 
         {error ? <FormError message={error} /> : null}
 
-        <button type="submit" disabled={isSubmitting} className="btn-primary mt-1.5 w-full py-3 rounded-[9px]">
+        <button type="submit" disabled={isSubmitting} className="btn-primary mt-1 w-full rounded-[9px] py-2.5">
           {isSubmitting ? 'Signing in…' : 'Log in'}
         </button>
 
         <OrRule />
         <GitHubButton label="Continue with GitHub" redirectTo={redirectTo} onError={setError} />
 
-        <p className="mt-3 text-[13.5px] text-muted">
+        <p className="text-[13.5px] text-muted">
           No account yet?{' '}
           <a
             href="/signup"

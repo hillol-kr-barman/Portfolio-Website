@@ -28,20 +28,20 @@ export default function AuthShell({
     <div className="canvas-grid min-h-screen">
       <AppHeader onNavigate={onNavigate} currentPath="" />
 
-      <main className="grid items-stretch lg:grid-cols-2">
-        <div className="border-b border-hair px-5 pb-16 pt-14 sm:px-14 lg:border-b-0 lg:border-r lg:pb-[88px] lg:pt-20">
+      <main className="grid items-stretch lg:min-h-[calc(100vh-4rem)] lg:grid-cols-2">
+        <div className="flex flex-col justify-center border-b border-hair px-5 py-10 sm:px-14 lg:border-b-0 lg:border-r lg:py-10">
           <p className="eyebrow">{eyebrow}</p>
-          <h1 className="mt-4 text-[clamp(2rem,5vw,40px)] font-semibold leading-[1.08] tracking-[-0.04em] text-ink">
+          <h1 className="mt-3 text-[clamp(1.875rem,4.5vw,40px)] font-semibold leading-[1.08] tracking-[-0.04em] text-ink">
             {title}
           </h1>
-          <p className="mt-3.5 max-w-[44ch] text-[15.5px] leading-[1.7] text-body text-pretty">
+          <p className="mt-3 max-w-[44ch] text-[15px] leading-[1.65] text-body text-pretty">
             {lead}
           </p>
-          <div className="mt-8 max-w-[400px]">{children}</div>
+          <div className="mt-6 max-w-[400px]">{children}</div>
         </div>
 
         {aside ? (
-          <div className="flex items-center px-5 py-14 sm:px-12 lg:py-20">
+          <div className="flex items-center px-5 py-10 sm:px-12 lg:py-10">
             <div className="w-full">{aside}</div>
           </div>
         ) : null}
@@ -82,7 +82,7 @@ export function Field({
         </label>
         {trailing}
       </div>
-      <div className="mt-2">{children}</div>
+      <div className="mt-1.5">{children}</div>
     </div>
   )
 }

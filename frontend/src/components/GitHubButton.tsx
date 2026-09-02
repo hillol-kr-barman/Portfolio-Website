@@ -36,7 +36,7 @@ export default function GitHubButton({ label, redirectTo = '/playground', onErro
       type="button"
       onClick={handleClick}
       disabled={isRedirecting}
-      className="btn-secondary w-full rounded-[9px] py-3 text-[13.5px]"
+      className="btn-secondary w-full rounded-[9px] py-2.5 text-[13.5px]"
     >
       <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="size-4">
         <path

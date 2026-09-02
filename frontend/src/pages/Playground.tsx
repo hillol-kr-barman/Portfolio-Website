@@ -5,7 +5,7 @@ import type { AuthUser } from '@hillolbarman/ui'
 import type { Monaco } from '@monaco-editor/react'
 import AppHeader from '../components/AppHeader'
 import SharedSnippetView from '../components/SharedSnippetView'
-import { ConfirmDialog, ShareDialog } from '../components/Dialogs'
+import { ConfirmDialog, ShareDialog, UnsavedChangesDialog } from '../components/Dialogs'
 import { PLAYGROUND_THEME, defineEditorTheme } from '../components/EditorTheme'
 import {
   LANGUAGE_BADGES,
@@ -48,6 +48,12 @@ interface EditorTab {
   isDraft: boolean
 }
 
+/** An action deferred until the user resolves unsaved changes. */
+interface PendingAction {
+  actionLabel: string
+  run: () => void
+}
+
 function shareUrlFor(token: string) {
   return `${window.location.origin}/playground?share=${token}`
 }
@@ -71,6 +77,8 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
   const [deleteMode, setDeleteMode] = useState<'single' | 'all' | null>(null)
 
   const [railOpen, setRailOpen] = useState(false)
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
+  const [isSavingBeforeAction, setIsSavingBeforeAction] = useState(false)
   const tabStripRef = useRef<HTMLDivElement | null>(null)
   const [sharedDocument, setSharedDocument] = useState<PlaygroundDocument | null>(null)
   const [isResolvingShare, setIsResolvingShare] = useState(false)
@@ -146,7 +154,9 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
     setLanguage('javascript')
     setCode(getStarterSnippet('javascript'))
     setShareUrl('')
-    setIsDirty(true)
+    // A fresh draft is the untouched starter snippet — nothing to protect yet.
+    // The first keystroke marks it dirty.
+    setIsDirty(false)
     logActivity('New snippet created')
   }, [logActivity])
 
@@ -157,10 +167,10 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
     setIsDirty(true)
   }
 
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(async (): Promise<boolean> => {
     if (!currentUser) {
       onNavigate('/login?redirect=/playground')
-      return
+      return false
     }
 
     setError('')
@@ -180,8 +190,10 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
       setIsDirty(false)
       await refreshDocuments()
       logActivity('Saved to your account')
+      return true
     } catch (err) {
       if (err instanceof Error) setError(err.message)
+      return false
     }
   }, [activeDocument, activeDocumentId, code, currentUser, language, logActivity, onNavigate, refreshDocuments, title])
 
@@ -234,9 +246,43 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
     }
   }, [activeDocumentId, code, currentUser, language, logActivity, refreshDocuments, title])
 
+  /**
+   * The editor holds a single buffer, so every action that loads something
+   * else over it — new snippet, opening another document, closing the active
+   * tab — has to clear unsaved work first.
+   */
+  const guardUnsaved = useCallback(
+    (actionLabel: string, run: () => void) => {
+      if (!isDirty) {
+        run()
+        return
+      }
+      setPendingAction({ actionLabel, run })
+    },
+    [isDirty],
+  )
+
+  const resolvePendingWithSave = async () => {
+    if (!pendingAction) return
+    setIsSavingBeforeAction(true)
+    const saved = await handleSave()
+    setIsSavingBeforeAction(false)
+    // A failed save keeps the dialog open so the work is never dropped on the
+    // strength of a request that did not land.
+    if (!saved) return
+    pendingAction.run()
+    setPendingAction(null)
+  }
+
+  const resolvePendingWithDiscard = () => {
+    if (!pendingAction) return
+    pendingAction.run()
+    setPendingAction(null)
+  }
+
   // ── ⌘S save, ⌘N new ───────────────────────────────────────────────────────
-  const handlersRef = useRef({ handleSave, handleNewDocument })
-  handlersRef.current = { handleSave, handleNewDocument }
+  const handlersRef = useRef({ handleSave, handleNewDocument, guardUnsaved })
+  handlersRef.current = { handleSave, handleNewDocument, guardUnsaved }
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -249,7 +295,8 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
 
       if (event.key.toLowerCase() === 'n') {
         event.preventDefault()
-        handlersRef.current.handleNewDocument()
+        const { guardUnsaved: guard, handleNewDocument: create } = handlersRef.current
+        guard('creating a new snippet', create)
       }
     }
 
@@ -257,9 +304,7 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
-  const closeTab = (event: React.MouseEvent, id: string) => {
-    event.stopPropagation()
-
+  const closeTab = (id: string) => {
     // The draft is not in `documents`, so closing it means falling back to the
     // last open document rather than removing a tab id.
     if (id === DRAFT_TAB_ID) {
@@ -417,7 +462,12 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
                   >
                     <button
                       type="button"
-                      onClick={() => { openDocument(doc); setRailOpen(false) }}
+                      onClick={() =>
+                        guardUnsaved(`opening ${doc.title}`, () => {
+                          openDocument(doc)
+                          setRailOpen(false)
+                        })
+                      }
                       className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
                     >
                       <span
@@ -532,7 +582,13 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
             {savedIndicator}
           </span>
           <button type="button" onClick={handleShare} className="btn-secondary btn-sm">Share</button>
-          <button type="button" onClick={handleNewDocument} className="btn-secondary btn-sm">+ New</button>
+          <button
+            type="button"
+            onClick={() => guardUnsaved('creating a new snippet', handleNewDocument)}
+            className="btn-secondary btn-sm"
+          >
+            + New
+          </button>
           <button type="button" onClick={handleSave} className="btn-primary btn-sm">Save</button>
         </div>
       </div>
@@ -574,7 +630,7 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
                       onClick={() => {
                         if (tab.isDraft) return
                         const doc = documents.find((item) => item.id === tab.id)
-                        if (doc) openDocument(doc)
+                        if (doc) guardUnsaved(`opening ${doc.title}`, () => openDocument(doc))
                       }}
                       className="flex min-w-0 items-center gap-2.5"
                     >
@@ -591,7 +647,14 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
                     </button>
                     <button
                       type="button"
-                      onClick={(e) => closeTab(e, tab.id)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (tab.id !== activeTabId) {
+                          closeTab(tab.id)
+                          return
+                        }
+                        guardUnsaved(`closing ${tab.title}`, () => closeTab(tab.id))
+                      }}
                       aria-label={`Close ${tab.title}`}
                       className={`shrink-0 text-[13px] leading-none ${
                         isActive ? 'text-faint' : 'text-[#3a444d]'
@@ -797,6 +860,17 @@ export default function Playground({ onNavigate, routeSearch = '', currentUser, 
         </DialogPanel>
       </Dialog>
 
+
+      <UnsavedChangesDialog
+        open={Boolean(pendingAction)}
+        documentName={title || NEW_DOCUMENT_TITLE}
+        actionLabel={pendingAction?.actionLabel ?? ''}
+        canSave={Boolean(currentUser)}
+        isSaving={isSavingBeforeAction}
+        onSave={resolvePendingWithSave}
+        onDiscard={resolvePendingWithDiscard}
+        onCancel={() => setPendingAction(null)}
+      />
 
       <ShareDialog
         open={shareDialogOpen}

@@ -113,3 +113,71 @@ export function ConfirmDialog({
     </Dialog>
   )
 }
+
+interface UnsavedChangesDialogProps {
+  open: boolean
+  /** The document about to be replaced in the editor. */
+  documentName: string
+  /** What the user was trying to do, e.g. "create a new snippet". */
+  actionLabel: string
+  /** Saving needs an account; anonymous editors can only discard or cancel. */
+  canSave: boolean
+  isSaving?: boolean
+  onSave: () => void
+  onDiscard: () => void
+  onCancel: () => void
+}
+
+/**
+ * The editor holds one buffer, so anything that loads a different document
+ * over unsaved work has to ask first. Three ways out — save and continue,
+ * discard and continue, or stay put.
+ */
+export function UnsavedChangesDialog({
+  open,
+  documentName,
+  actionLabel,
+  canSave,
+  isSaving = false,
+  onSave,
+  onDiscard,
+  onCancel,
+}: UnsavedChangesDialogProps) {
+  return (
+    <Dialog open={open} onClose={onCancel} className="relative z-[300]">
+      <div className="fixed inset-0 bg-black/60" />
+      <div className="fixed inset-0 flex items-center justify-center overflow-y-auto p-4">
+        <DialogPanel className="w-full max-w-[460px] rounded-[14px] border border-hair bg-raised p-6">
+          <p className="eyebrow">Unsaved changes</p>
+          <DialogTitle className="mt-2.5 text-[18px] font-semibold tracking-[-0.02em] text-strong">
+            Save “{documentName}” first?
+          </DialogTitle>
+          <p className="mt-2.5 text-[14px] leading-[1.7] text-dim">
+            {canSave
+              ? `This snippet has changes that are not saved to your account. They will be lost when ${actionLabel}.`
+              : `This snippet has changes that are not saved. Saving needs an account, so they will be lost when ${actionLabel}.`}
+          </p>
+
+          <div className="mt-5 flex flex-wrap justify-end gap-3">
+            <button type="button" onClick={onCancel} className="btn-secondary btn-sm">
+              Cancel
+            </button>
+            <button type="button" onClick={onDiscard} className="btn-danger btn-sm">
+              Discard changes
+            </button>
+            {canSave ? (
+              <button
+                type="button"
+                onClick={onSave}
+                disabled={isSaving}
+                className="btn-primary btn-sm"
+              >
+                {isSaving ? 'Saving…' : 'Save and continue'}
+              </button>
+            ) : null}
+          </div>
+        </DialogPanel>
+      </div>
+    </Dialog>
+  )
+}

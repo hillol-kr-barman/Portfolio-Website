@@ -29,6 +29,21 @@ except ImportError:  # pragma: no cover
     certifi = None
 
 
+def load_env_file() -> None:
+    """Read backend/.env the same way main.py does, so the token only has to be
+    written down once. Real environment variables still win."""
+    env_path = Path(__file__).resolve().parent / ".env"
+    if not env_path.is_file():
+        return
+
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip("'\""))
+
+
 def ssl_context() -> ssl.SSLContext:
     """Python on macOS often has no system CA bundle; the backend does the same."""
     if certifi is not None:
@@ -62,6 +77,8 @@ def post(api: str, token: str, body: dict) -> dict:
 
 
 def main() -> None:
+    load_env_file()
+
     parser = argparse.ArgumentParser(description="Send a newsletter from an HTML file.")
     parser.add_argument("html", type=Path, help="Path to the .html body")
     parser.add_argument("--subject", required=True)
@@ -79,7 +96,11 @@ def main() -> None:
     args = parser.parse_args()
 
     if not args.token:
-        sys.exit("error  set NEWSLETTER_ADMIN_TOKEN or pass --token")
+        sys.exit(
+            "error  no admin token.\n"
+            "       Add NEWSLETTER_ADMIN_TOKEN to backend/.env (same value as on Render),\n"
+            "       or export it, or pass --token."
+        )
     if not args.html.is_file():
         sys.exit(f"error  no such file: {args.html}")
 

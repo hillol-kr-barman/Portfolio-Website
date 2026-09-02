@@ -19,17 +19,18 @@
   </p>
 
   <h1 style="font-size:24px;line-height:1.25;font-weight:600;margin:0 0 18px;color:#111827;">
-    My First Newsletter
+    This is the first Newsletter from my site
   </h1>
 
   <p style="font-size:15px;line-height:1.65;margin:0 0 16px;">
-    Opening paragraph. Most people read the first
-    two lines in a preview pane and decide there.
+    Tech is evolving. We are at the end game of what we used to see before.
+
+    Are you keeping yourself updated?
   </p>
 
   <p style="font-size:15px;line-height:1.65;margin:0 0 28px;">
     <a href="https://www.lazymate.dev" style="color:#047857;font-weight:600;text-decoration:none;">
-      Call to action &rarr;
+      Visit for more &rarr;
     </a>
   </p>
 
